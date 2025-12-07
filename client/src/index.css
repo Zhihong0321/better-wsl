@@ -1,0 +1,436 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+:root {
+  /* Terminal / Lo-Fi Palette */
+  --bg-app: #000000;
+  --bg-panel: #0a0a0a;
+  --bg-active: #1a1a1a;
+
+  /* Muted Terminal Green - Eye-Friendly */
+  --accent-primary: #4a9c5e;
+  --accent-primary-dim: #3a7a4a;
+  --accent-secondary: #2d5f3d;
+  --accent-hover: #5aac6e;
+
+  /* Muted Alert Colors */
+  --accent-alert: #c45c5c;
+  --accent-danger: #a84444;
+
+  --text-main: #e0e0e0;
+  --text-muted: #666666;
+  --text-dim: #333333;
+
+  --border-std: #333333;
+  --border-subtle: #2a2a2a;
+  --border-active: #4a9c5e;
+  --focus-gradient-a: #4a9c5e;
+  --focus-gradient-b: #5aac6e;
+  --focus-gradient-c: #2d5f3d;
+  /* Typography */
+  --font-stack: 'Space Mono', 'Courier New', Courier, monospace;
+
+  /* Spacing */
+  --spacing-unit: 8px;
+  --terminal-padding: 16px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body,
+html {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  font-family: var(--font-stack);
+  overflow: hidden;
+  -webkit-font-smoothing: none;
+  /* Crisp pixelated look */
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  display: flex;
+}
+
+/* Scrollbars - Retro Blocky */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+  background: var(--bg-app);
+  border-left: 1px solid var(--border-std);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--text-dim);
+  border: 1px solid var(--bg-app);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Button Reset & Terminal Style */
+button {
+  background: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+  outline: none;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -2px;
+}
+
+
+/* Utilities */
+.terminal-border {
+  border: 1px solid var(--border-std);
+}
+
+.terminal-active {
+  background: var(--bg-active);
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+.scanline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to bottom,
+      rgba(255, 255, 255, 0),
+      rgba(255, 255, 255, 0) 50%,
+      rgba(0, 0, 0, 0.1) 50%,
+      rgba(0, 0, 0, 0.1));
+  background-size: 100% 4px;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.3;
+}
+
+/* ============================
+   ANIMATION KEYFRAMES
+   ============================ */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromLeft {
+  from {
+    transform: translateX(-20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromBottom {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromTop {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes gentleBreath {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+@keyframes processingBreath {
+  0%, 100% { 
+    background-color: var(--accent-primary);
+    color: var(--bg-app);
+    opacity: 1;
+  }
+  50% { 
+    background-color: var(--accent-secondary);
+    color: var(--text-main);
+    opacity: 0.8;
+  }
+}
+
+@keyframes auroraFlow {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+@keyframes glow {
+
+  0%,
+  100% {
+    box-shadow: 0 0 3px rgba(74, 156, 94, 0.3);
+  }
+
+  50% {
+    box-shadow: 0 0 8px rgba(74, 156, 94, 0.5), 0 0 15px rgba(74, 156, 94, 0.3);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+/* ============================
+   ANIMATION UTILITY CLASSES
+   ============================ */
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.fade-in-slow {
+  animation: fadeIn 0.6s ease-out;
+}
+
+.slide-in-right {
+  animation: slideInFromRight 0.3s ease-out;
+}
+
+.slide-in-left {
+  animation: slideInFromLeft 0.3s ease-out;
+}
+
+.slide-in-bottom {
+  animation: slideInFromBottom 0.3s ease-out;
+}
+
+.slide-in-top {
+  animation: slideInFromTop 0.3s ease-out;
+}
+
+.scale-in {
+  animation: scaleIn 0.3s ease-out;
+}
+
+.pulse-slow {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.gentle-breath {
+  animation: gentleBreath 4s ease-in-out infinite;
+}
+
+.processing-breath {
+  animation: processingBreath 1.5s ease-in-out infinite;
+}
+
+.aurora-breath {
+    background: linear-gradient(270deg, var(--accent-primary), #3a8a7a, #5e4a9c, var(--accent-primary));
+    background-size: 400% 400%;
+    animation: auroraFlow 6s ease infinite;
+    color: var(--bg-app) !important;
+    border-color: rgba(255,255,255,0.1) !important;
+}
+
+.glow-pulse {
+  animation: glow 2s ease-in-out infinite;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+/* ============================
+   INTERACTIVE TRANSITIONS
+   ============================ */
+
+.smooth-transition {
+  transition: all 0.2s ease-out;
+}
+
+.smooth-transition-slow {
+  transition: all 0.4s ease-out;
+}
+
+/* Button hover lift effect */
+.hover-lift {
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+}
+
+.hover-lift:active {
+  transform: translateY(0);
+}
+
+/* Glow on hover */
+.hover-glow {
+  transition: box-shadow 0.3s ease-out, border-color 0.3s ease-out;
+}
+
+.hover-glow:hover {
+  box-shadow: 0 0 6px rgba(74, 156, 94, 0.4);
+  border-color: var(--accent-primary);
+}
+
+/* Scale on hover */
+.hover-scale {
+  transition: transform 0.2s ease-out;
+}
+
+.hover-scale:hover {
+  transform: scale(1.05);
+}
+
+.hover-scale:active {
+  transform: scale(0.98);
+}
+
+/* Icon rotation on hover */
+.hover-rotate {
+  transition: transform 0.3s ease-out;
+}
+
+.hover-rotate:hover {
+  transform: rotate(90deg);
+}
+
+@keyframes gradientFlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.focus-ring-active {
+  padding: 3px;
+  background: linear-gradient(90deg, var(--focus-gradient-a), var(--focus-gradient-b), var(--focus-gradient-c));
+  background-size: 200% 200%;
+  animation: gradientFlow 2s ease infinite;
+}
+
+.focus-ring-inactive {
+  padding: 3px;
+  background: var(--border-std);
+}
+
+/* ============================
+   INPUT ANIMATIONS
+   ============================ */
+
+input,
+textarea {
+  transition: border-color 0.2s ease-out, box-shadow 0.2s ease-out;
+}
+
+input:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(74, 156, 94, 0.15);
+}
+
+/* ============================
+   LOADING STATES
+   ============================ */
+
+.shimmer-bg {
+  background: linear-gradient(90deg,
+      var(--bg-panel) 0%,
+      var(--bg-active) 50%,
+      var(--bg-panel) 100%);
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite;
+}

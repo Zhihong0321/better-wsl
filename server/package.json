@@ -1,0 +1,28 @@
+{
+  "name": "better-wsl",
+  "version": "1.0.0",
+  "description": "A modern, web-based terminal interface for WSL",
+  "main": "index.js",
+  "bin": {
+    "better-wsl": "./bin/better-wsl.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "wsl",
+    "terminal",
+    "cli",
+    "web-based"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.2.1",
+    "node-pty": "^1.1.0-beta39",
+    "socket.io": "^4.8.1"
+  }
+}
