@@ -4,6 +4,7 @@ import { Folder, HardDrive, ArrowLeft, Check } from 'lucide-solid';
 interface FileBrowserProps {
     onSelect: (path: string) => void;
     onCancel: () => void;
+    initialPath?: string;
 }
 
 export default function FileBrowser(props: FileBrowserProps) {
@@ -19,7 +20,10 @@ export default function FileBrowser(props: FileBrowserProps) {
             const res = await fetch('http://localhost:3000/api/system/drives');
             const data = await res.json();
             setDrives(data);
-            setCurrentPath(''); // Root
+            // Only reset path if we aren't initializing with a path, 
+            // but we can't easily check that here without passing a flag.
+            // Instead, we'll let the caller handle the path setting order.
+            setCurrentPath(''); 
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -95,14 +99,18 @@ export default function FileBrowser(props: FileBrowserProps) {
         fetchDirs(newPath);
     };
 
-    onMount(() => {
-        fetchDrives();
+    onMount(async () => {
+        await fetchDrives();
+        if (props.initialPath) {
+            fetchDirs(props.initialPath);
+        }
     });
 
     return (
         <div style={{
             display: 'flex', "flex-direction": 'column',
             height: '100%', width: '100%', 
+            "min-height": 0,
             background: 'var(--bg-app)',
             "font-family": 'var(--font-stack)'
         }}>
@@ -131,7 +139,7 @@ export default function FileBrowser(props: FileBrowserProps) {
             </div>
 
             {/* List */}
-            <div style={{ flex: 1, overflow: 'auto', padding: '8px' }}>
+            <div style={{ flex: 1, overflow: 'auto', padding: '8px', "min-height": 0 }}>
                 <Show when={error()}>
                     <div style={{ color: 'red', "font-size": '12px', padding: '8px' }}>{error()}</div>
                 </Show>

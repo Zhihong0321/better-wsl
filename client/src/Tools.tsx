@@ -24,12 +24,14 @@ interface ToolStatus {
         installed: boolean;
         version: string | null;
         path: string | null;
+        variant?: string;
     };
     windows: {
         installed: boolean;
         version: string | null;
         path: string | null;
     };
+    latestVersion?: string | null;
 }
 
 interface AuthStatus {
@@ -106,6 +108,14 @@ const STANDARD_TOOLS: Tool[] = [
         checkCommand: 'python3'
     },
     {
+        id: 'pip',
+        name: 'Pip (Python 3)',
+        description: 'Package installer for Python 3. Essential for installing Python packages.',
+        command: 'sudo apt update && sudo apt install -y python3-pip\r',
+        versionCommand: 'pip3 --version\r',
+        checkCommand: 'pip3'
+    },
+    {
         id: 'rust',
         name: 'Rust (Rustup)',
         description: 'Systems programming language that runs blazingly fast.',
@@ -129,7 +139,7 @@ const CODING_CLI_TOOLS: Tool[] = [
         id: 'railway',
         name: 'Railway CLI',
         description: 'Deploy to Railway directly from terminal. Essential for deployment testing.',
-        command: 'export PATH=$(echo "$PATH" | tr ":" "\\n" | grep -v "/mnt/" | tr "\\n" ":"); echo "Installing Railway CLI..."; npm install -g @railway/cli || sudo npm install -g @railway/cli\r',
+        command: 'export PATH=$(echo "$PATH" | tr ":" "\\n" | grep -v "/mnt/" | tr "\\n" ":"); echo "Installing Railway CLI..."; mkdir -p "$HOME/.npm-global"; npm config set prefix "$HOME/.npm-global"; export PATH="$HOME/.npm-global/bin:$PATH"; grep -q "npm-global/bin" "$HOME/.bashrc" || echo \'export PATH="$HOME/.npm-global/bin:$PATH"\' >> "$HOME/.bashrc"; npm install -g @railway/cli\r',
         versionCommand: 'railway --version\r',
         checkCommand: 'railway'
     },
@@ -145,7 +155,7 @@ const CODING_CLI_TOOLS: Tool[] = [
         id: 'gemini',
         name: 'Gemini CLI',
         description: 'Google Gemini AI-powered command line assistant.',
-        command: 'export PATH=$(echo "$PATH" | tr ":" "\\n" | grep -v "/mnt/" | tr "\\n" ":"); echo "Installing Gemini CLI..."; npm install -g @google/gemini-cli || sudo npm install -g @google/gemini-cli\r',
+        command: 'export PATH=$(echo "$PATH" | tr ":" "\\n" | grep -v "/mnt/" | tr "\\n" ":"); echo "Installing Gemini CLI..."; mkdir -p "$HOME/.npm-global"; npm config set prefix "$HOME/.npm-global"; export PATH="$HOME/.npm-global/bin:$PATH"; grep -q "npm-global/bin" "$HOME/.bashrc" || echo \'export PATH="$HOME/.npm-global/bin:$PATH"\' >> "$HOME/.bashrc"; npm install -g @google/gemini-cli\r',
         versionCommand: 'gemini --version\r',
         checkCommand: 'gemini'
     },
@@ -153,7 +163,7 @@ const CODING_CLI_TOOLS: Tool[] = [
         id: 'claude',
         name: 'Claude Code',
         description: 'Anthropic\'s Claude AI coding assistant.',
-        command: 'export PATH=$(echo "$PATH" | tr ":" "\\n" | grep -v "/mnt/" | tr "\\n" ":"); echo "Installing Claude Code..."; npm install -g @anthropic-ai/claude-code || sudo npm install -g @anthropic-ai/claude-code\r',
+        command: 'export PATH=$(echo "$PATH" | tr ":" "\\n" | grep -v "/mnt/" | tr "\\n" ":"); echo "Installing Claude Code..."; mkdir -p "$HOME/.npm-global"; npm config set prefix "$HOME/.npm-global"; export PATH="$HOME/.npm-global/bin:$PATH"; grep -q "npm-global/bin" "$HOME/.bashrc" || echo \'export PATH="$HOME/.npm-global/bin:$PATH"\' >> "$HOME/.bashrc"; npm install -g @anthropic-ai/claude-code\r',
         versionCommand: 'claude --version\r',
         checkCommand: 'claude'
     },
@@ -161,7 +171,7 @@ const CODING_CLI_TOOLS: Tool[] = [
         id: 'codex',
         name: 'Codex CLI',
         description: 'OpenAI Codex command line interface.',
-        command: 'export PATH=$(echo "$PATH" | tr ":" "\\n" | grep -v "/mnt/" | tr "\\n" ":"); echo "Installing Codex CLI..."; npm install -g @openai/codex || sudo npm install -g @openai/codex\r',
+        command: 'export PATH=$(echo "$PATH" | tr ":" "\\n" | grep -v "/mnt/" | tr "\\n" ":"); echo "Installing Codex CLI..."; mkdir -p "$HOME/.npm-global"; npm config set prefix "$HOME/.npm-global"; export PATH="$HOME/.npm-global/bin:$PATH"; grep -q "npm-global/bin" "$HOME/.bashrc" || echo \'export PATH="$HOME/.npm-global/bin:$PATH"\' >> "$HOME/.bashrc"; npm install -g @openai/codex\r',
         versionCommand: 'codex --version\r',
         checkCommand: 'codex'
     },
@@ -177,6 +187,7 @@ const CODING_CLI_TOOLS: Tool[] = [
 
 interface ToolsPanelProps {
     onInstall: (cmd: string) => void;
+    onShutdown?: () => void;
 }
 
 const ToolsPanel: Component<ToolsPanelProps> = (props) => {
@@ -186,6 +197,7 @@ const ToolsPanel: Component<ToolsPanelProps> = (props) => {
     const [authStatuses, setAuthStatuses] = createSignal<Map<string, AuthStatus>>(new Map());
     const [npmHealth, setNpmHealth] = createSignal<NpmHealth | null>(null);
     const [activeTab, setActiveTab] = createSignal<TabType>('ESSENTIAL');
+    const [shuttingDown, setShuttingDown] = createSignal(false);
 
     const fetchDiskSpace = async () => {
         try {
@@ -212,8 +224,22 @@ const ToolsPanel: Component<ToolsPanelProps> = (props) => {
             });
             const data = await res.json();
 
+            // Fetch latest version
+            let latestVersion = null;
+            try {
+                const latestRes = await fetch('http://localhost:3000/api/tools/latest', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ toolId: tool.id })
+                });
+                const latestData = await latestRes.json();
+                latestVersion = latestData.version;
+            } catch (e) {
+                console.warn(`Failed to check latest version for ${tool.name}`, e);
+            }
+
             const statuses = new Map(toolStatuses());
-            statuses.set(tool.id, data);
+            statuses.set(tool.id, { ...data, latestVersion });
             setToolStatuses(statuses);
         } catch (err) {
             console.error(`Failed to check ${tool.name}:`, err);
@@ -257,7 +283,7 @@ const ToolsPanel: Component<ToolsPanelProps> = (props) => {
             const res = await fetch('http://localhost:3000/api/tools/npm-health', { method: 'POST' });
             const data = await res.json();
             setNpmHealth(data);
-        } catch {}
+        } catch { }
     };
 
     const handleInstall = (tool: Tool) => {
@@ -300,7 +326,7 @@ const ToolsPanel: Component<ToolsPanelProps> = (props) => {
 
         // Direct install without blocking checks
         props.onInstall(tool.command);
-        
+
         setTimeout(() => {
             if (confirm('Installation sent to terminal. Check status now?')) {
                 checkToolStatus(tool);
@@ -311,7 +337,7 @@ const ToolsPanel: Component<ToolsPanelProps> = (props) => {
     const handleFixNpm = () => {
         const h = npmHealth();
         if (!h) return;
-        
+
         const cmd = `set -e; 
 HOME_DIR="$(getent passwd $(whoami) | cut -d: -f6)"; 
 FNM_DIR="$HOME_DIR/.local/share/fnm"; 
@@ -339,7 +365,7 @@ if ! grep -q "npm-global/bin" "$HOME_DIR/.bashrc"; then
 fi; 
 export PATH="$HOME_DIR/.npm-global/bin:$PATH"; 
 which npm; npm -v; echo "NPM Fixed in WSL!"`;
-        
+
         props.onInstall(cmd.replace(/\n/g, ' ') + "\r");
         setTimeout(checkNpmHealth, 5000);
     };
@@ -374,6 +400,45 @@ which npm; npm -v; echo "NPM Fixed in WSL!"`;
             });
     };
 
+    const handleShutdown = async () => {
+        if (shuttingDown()) return;
+        const ok = confirm('Shutdown Better WSL backend now? This will stop the server and terminals.');
+        if (!ok) return;
+        setShuttingDown(true);
+        try {
+            await fetch('http://localhost:3000/api/system/shutdown', { method: 'POST' });
+
+            // Poll for shutdown confirmation
+            const interval = setInterval(async () => {
+                try {
+                    // Try to fetch health with a short timeout
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 1000);
+
+                    const res = await fetch('http://localhost:3000/healthz', {
+                        signal: controller.signal
+                    });
+                    clearTimeout(timeoutId);
+
+                    if (!res.ok) throw new Error('Server returned error');
+                } catch (e) {
+                    // Server is unreachable or returned error -> Shutdown complete
+                    clearInterval(interval);
+                    if (props.onShutdown) {
+                        props.onShutdown();
+                    } else {
+                        window.location.reload();
+                    }
+                }
+            }, 500);
+
+        } catch (err) {
+            console.error('Shutdown failed', err);
+            alert('Shutdown request failed');
+            setShuttingDown(false);
+        }
+    };
+
     onMount(() => {
         fetchDiskSpace();
         checkAllTools();
@@ -403,14 +468,18 @@ which npm; npm -v; echo "NPM Fixed in WSL!"`;
     const getToolStatusText = (toolId: string) => {
         const status = toolStatuses().get(toolId);
         if (!status) return 'Checking...';
+
+        const latest = status.latestVersion ? ` (Latest: ${status.latestVersion})` : '';
+        const variant = status.wsl?.variant ? ` [${status.wsl.variant}]` : '';
+
         switch (status.status) {
-            case 'installed_wsl': return `✓ WSL ${status.wsl.version || ''}`;
-            case 'installed_windows': return `⚠ Windows Only`;
-            case 'conflict': return `⚠ Conflict`;
-            default: return 'Not Installed';
+            case 'installed_wsl': return `✓ WSL ${status.wsl.version || ''}${variant}${latest}`;
+            case 'installed_windows': return `⚠ Windows Only${latest}`;
+            case 'conflict': return `⚠ Conflict${latest}`;
+            default: return `Not Installed${latest}`;
         }
     };
-    
+
     const getVisibleTools = () => {
         switch (activeTab()) {
             case 'ESSENTIAL': return ESSENTIAL_TOOLS;
@@ -421,10 +490,10 @@ which npm; npm -v; echo "NPM Fixed in WSL!"`;
 
     return (
         <div class="fade-in" style={{ padding: '24px', height: '100%', "display": "flex", "flex-direction": "column", "background-color": 'var(--bg-app)' }}>
-            
+
             {/* Top Navigation */}
             <div style={{ "margin-bottom": "24px", "display": "flex", "gap": "16px", "border-bottom": "1px solid var(--border-std)", "padding-bottom": "16px" }}>
-                <button 
+                <button
                     onClick={() => setActiveTab('ESSENTIAL')}
                     style={{
                         "display": "flex", "align-items": "center", "gap": "8px",
@@ -437,7 +506,7 @@ which npm; npm -v; echo "NPM Fixed in WSL!"`;
                 >
                     <Box size={16} /> ESSENTIAL
                 </button>
-                <button 
+                <button
                     onClick={() => setActiveTab('TOOLS')}
                     style={{
                         "display": "flex", "align-items": "center", "gap": "8px",
@@ -450,7 +519,7 @@ which npm; npm -v; echo "NPM Fixed in WSL!"`;
                 >
                     <Terminal size={16} /> TOOLS
                 </button>
-                <button 
+                <button
                     onClick={() => setActiveTab('CODING_CLI')}
                     style={{
                         "display": "flex", "align-items": "center", "gap": "8px",
@@ -463,9 +532,9 @@ which npm; npm -v; echo "NPM Fixed in WSL!"`;
                 >
                     <Code size={16} /> CODING CLI
                 </button>
-                
-                <div style={{ "margin-left": "auto" }}>
-                     <button
+
+                <div style={{ "margin-left": "auto", display: 'flex', gap: '8px' }}>
+                    <button
                         class="smooth-transition hover-scale"
                         onClick={() => { checkAllTools(); checkNpmHealth(); }}
                         style={{
@@ -486,9 +555,32 @@ which npm; npm -v; echo "NPM Fixed in WSL!"`;
                         <RefreshCcw size={14} />
                         REFRESH
                     </button>
+                    <button
+                        class="smooth-transition hover-scale"
+                        onClick={handleShutdown}
+                        style={{
+                            padding: '8px 16px',
+                            background: 'transparent',
+                            border: '1px solid #ff6b6b',
+                            color: '#ff6b6b',
+                            "font-size": '13px',
+                            "font-weight": 700,
+                            display: 'flex',
+                            "align-items": 'center',
+                            gap: '8px',
+                            "text-transform": 'uppercase',
+                            cursor: 'pointer',
+                            opacity: shuttingDown() ? 0.6 : 1
+                        }}
+                        title="Shutdown backend"
+                        disabled={shuttingDown()}
+                    >
+                        <Trash2 size={14} />
+                        {shuttingDown() ? 'SHUTTING...' : 'SHUTDOWN'}
+                    </button>
                 </div>
             </div>
-            
+
             <div style={{ "overflow-y": 'auto', "flex": 1, "padding-right": "8px" }}>
                 {/* Storage Monitor - Only show on ESSENTIAL tab */}
                 <Show when={activeTab() === 'ESSENTIAL' && diskSpace()}>
@@ -551,12 +643,12 @@ which npm; npm -v; echo "NPM Fixed in WSL!"`;
                         </div>
                     </div>
                 </Show>
-                
+
                 {/* System Tools Section (NPM Health) - Only show on TOOLS tab */}
                 <Show when={activeTab() === 'TOOLS' && npmHealth()}>
-                    <div class="fade-in smooth-transition" style={{ 
-                        padding: '20px', 
-                        border: '1px solid var(--border-std)', 
+                    <div class="fade-in smooth-transition" style={{
+                        padding: '20px',
+                        border: '1px solid var(--border-std)',
                         "margin-bottom": '24px',
                         display: 'flex', "flex-direction": 'column', gap: '12px',
                         background: 'var(--bg-panel)'
@@ -610,8 +702,8 @@ which npm; npm -v; echo "NPM Fixed in WSL!"`;
                                                 {tool.name}
                                             </div>
                                             <div style={{ "font-size": '11px', color: getToolStatusColor(tool.id), "font-family": 'var(--font-stack)', "height": '16px' }}>
-                                                {isChecking() ? 
-                                                    <RandomCharAnimation length={12} class="fade-in" style={{ color: 'var(--accent-primary)' }} /> : 
+                                                {isChecking() ?
+                                                    <RandomCharAnimation length={12} class="fade-in" style={{ color: 'var(--accent-primary)' }} /> :
                                                     getToolStatusText(tool.id)
                                                 }
                                             </div>
@@ -635,10 +727,10 @@ which npm; npm -v; echo "NPM Fixed in WSL!"`;
                                         </div>
                                     </Show>
 
-                                    <div style={{ 
-                                        "font-size": '14px', 
-                                        color: 'var(--text-main)', 
-                                        "line-height": 1.4, 
+                                    <div style={{
+                                        "font-size": '14px',
+                                        color: 'var(--text-main)',
+                                        "line-height": 1.4,
                                         "font-family": 'var(--font-stack)',
                                         "flex": 1,
                                         "overflow": 'hidden',
@@ -677,7 +769,7 @@ which npm; npm -v; echo "NPM Fixed in WSL!"`;
                                             <Download size={14} />
                                             {status()?.status === 'installed_wsl' ? 'REINSTALL' : 'INSTALL'}
                                         </button>
-                                        
+
                                         <Show when={status()?.status !== 'not_installed'}>
                                             <button
                                                 class="smooth-transition"
@@ -704,7 +796,7 @@ which npm; npm -v; echo "NPM Fixed in WSL!"`;
                                                 <Trash2 size={14} />
                                             </button>
                                         </Show>
-                                        
+
                                         {/* Auth button for Railway and GitHub CLI */}
                                         <Show when={tool.id === 'railway' || tool.id === 'gh-cli'}>
                                             <button

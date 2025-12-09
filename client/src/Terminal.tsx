@@ -1,4 +1,4 @@
-import { onMount, onCleanup, createSignal } from 'solid-js';
+import { onMount, onCleanup, createSignal, createEffect } from 'solid-js';
 import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import { io, type Socket } from 'socket.io-client';
@@ -26,7 +26,7 @@ export default function TerminalComponent(props: TerminalProps) {
     onMount(() => {
         if (!terminalRef) return;
 
-        // Activity tracking
+        // Activity tracking (keep purely functional reference)
         let activityTimeout: number;
         const reportActivity = () => {
             if (props.onActivity) {
@@ -49,7 +49,8 @@ export default function TerminalComponent(props: TerminalProps) {
                 foreground: '#e0e0e0',
                 cursor: '#00ff41',
                 selectionBackground: '#00ff4144'
-            }
+            },
+            scrollback: 10000,
         });
         termInstance = term;
 
@@ -58,6 +59,16 @@ export default function TerminalComponent(props: TerminalProps) {
         term.open(terminalRef!);
         fitAddon.fit();
         term.focus();
+
+        // Handle resize strictly for UI
+        const handleResize = () => {
+            fitAddon.fit();
+            // Emit resize if socket exists (handled in effect)
+            if (socket) {
+                socket.emit('resize', { cols: term.cols, rows: term.rows });
+            }
+        };
+        window.addEventListener('resize', handleResize);
 
         // Custom paste handler
         const handlePaste = async (e: ClipboardEvent) => {
@@ -69,7 +80,7 @@ export default function TerminalComponent(props: TerminalProps) {
                 const file = e.clipboardData.files[0];
                 if (file.type.startsWith('image/')) {
                     term.write('\x1b[33m[Uploading image...]\x1b[0m');
-                    
+
                     try {
                         const reader = new FileReader();
                         reader.onload = async (evt) => {
@@ -79,16 +90,16 @@ export default function TerminalComponent(props: TerminalProps) {
                             const res = await fetch('http://localhost:3000/api/upload', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ 
+                                body: JSON.stringify({
                                     image: base64,
                                     filename: file.name
                                 })
                             });
                             const data = await res.json();
-                            
+
                             // Clear "Uploading..." line
-                            term.write('\r\x1b[K'); 
-                            
+                            term.write('\r\x1b[K');
+
                             if (data.path) {
                                 term.paste(data.path);
                             } else {
@@ -106,15 +117,19 @@ export default function TerminalComponent(props: TerminalProps) {
             // 2. Fallback to text
             const text = e.clipboardData?.getData('text/plain');
             if (text) {
-                term.paste(text);
+                // AGGRESSIVE SANITIZATION:
+                // Remove all newlines to prevent accidental execution.
+                // We replace any sequence of CR/LF with a single space.
+                const sanitized = text.replace(/[\r\n]+/g, ' ');
+                if (sanitized) {
+                    term.paste(sanitized);
+                }
             }
         };
         terminalRef!.addEventListener('paste', handlePaste as any, true);
 
         term.attachCustomKeyEventHandler((e) => {
-            // Only process keydown events to avoid double-firing on keyup
             if (e.type !== 'keydown') return true;
-
             if (e.ctrlKey && e.key.toLowerCase() === 'c') {
                 const mode = props.ctrlCBehavior || 'copy';
                 if (mode === 'copy') {
@@ -124,45 +139,47 @@ export default function TerminalComponent(props: TerminalProps) {
                 }
                 return true;
             }
-            // Remove custom Ctrl+V handler to avoid triple-paste issue:
-            // 1. Keydown handler (removed)
-            // 2. Keyup handler (removed)
-            // 3. Native browser paste -> xterm onData (kept)
             return true;
         });
 
+        // Setup Reactive Session Connection
+        // This will run whenever props.sessionId changes
+        createEffect(() => {
+            const sId = props.sessionId;
+            if (!sId) return;
 
-        // 2. Connect to Backend
-        socket = io('http://localhost:3000', {
-            query: { sessionId: props.sessionId }
+            term.reset();
+            term.writeln('\x1b[32m[Connecting...]\x1b[0m');
+
+            const newSocket = io('http://localhost:3000', {
+                query: { sessionId: sId }
+            });
+
+            // Update outer ref for resizing
+            socket = newSocket;
+
+            const onDataDisposable = term.onData((data) => {
+                newSocket.emit('input', data);
+                reportActivity();
+            });
+
+            newSocket.on('output', (data) => {
+                term.write(data);
+                reportActivity();
+            });
+
+            // Sync size on connect
+            newSocket.emit('resize', { cols: term.cols, rows: term.rows });
+
+            // Cleanup function for this effect run
+            onCleanup(() => {
+                newSocket.disconnect();
+                onDataDisposable.dispose();
+            });
         });
-
-        // 3. Handle data flow
-        term.onData((data) => {
-            socket?.emit('input', data);
-            reportActivity();
-        });
-
-        socket.on('output', (data) => {
-            term.write(data);
-            reportActivity();
-        });
-
-        // 4. Handle resize
-        const handleResize = () => {
-            fitAddon.fit();
-            socket?.emit('resize', { cols: term.cols, rows: term.rows });
-        };
-
-        window.addEventListener('resize', handleResize);
-        // Initial size sync
-        socket.emit('resize', { cols: term.cols, rows: term.rows });
-
-        term.writeln('\x1b[32m[Connected to Session Manager]\x1b[0m');
 
         onCleanup(() => {
             terminalRef?.removeEventListener('paste', handlePaste as any, true);
-            socket?.disconnect();
             term.dispose();
             window.removeEventListener('resize', handleResize);
         });
@@ -175,9 +192,9 @@ export default function TerminalComponent(props: TerminalProps) {
             onClick={() => setFocused(true)}
             onFocus={handleFocus}
             onBlur={handleBlur}
-            style={{ 
-                width: 'calc(100% - 2px)', 
-                height: 'calc(100% - 2px)', 
+            style={{
+                width: 'calc(100% - 2px)',
+                height: 'calc(100% - 2px)',
                 margin: '1px',
                 "box-sizing": 'border-box',
                 position: 'relative',
@@ -185,13 +202,12 @@ export default function TerminalComponent(props: TerminalProps) {
                 "flex-direction": 'column'
             }}
         >
-            <div style={{ 
-                flex: 1, 
-                width: '100%', 
-                "background-color": "#000000", 
+            <div style={{
+                flex: 1,
+                width: '100%',
+                "background-color": "#000000",
                 padding: 'var(--terminal-padding)',
-                "padding-right": '10px', /* Avoid scrollbar overlap */
-                overflow: 'hidden' 
+                /* Remove padding-right and overflow hidden to ensure scrollbar visibility */
             }}>
                 <div
                     ref={terminalRef}

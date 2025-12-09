@@ -6,6 +6,8 @@ import WelcomeScreen from './WelcomeScreen';
 import SettingsPage from './Settings';
 import ErrorScreen from './ErrorScreen';
 import FileBrowser from './FileBrowser';
+import AutoPilot from './AutoPilot';
+import SessionFileExplorer from './SessionFileExplorer';
 import './App.css';
 
 interface Session {
@@ -21,12 +23,17 @@ interface GitInfo {
         date: string;
         message: string;
     };
+    commits?: {
+        hash: string;
+        date: string;
+        message: string;
+    }[];
 }
 
 function App() {
   const [sessions, setSessions] = createSignal<Session[]>([]);
   const [activeSessionId, setActiveSessionId] = createSignal<string | null>(null);
-  const [currentView, setCurrentView] = createSignal<'sessions' | 'tools' | 'settings' | 'clipboard'>('sessions');
+  const [currentView, setCurrentView] = createSignal<'sessions' | 'tools' | 'settings' | 'clipboard' | 'autopilot'>('sessions');
   const initialCtrlC = ((): 'copy' | 'cancel' => {
     const v = localStorage.getItem('ctrlCBehavior');
     return v === 'cancel' ? 'cancel' : 'copy';
@@ -36,11 +43,13 @@ function App() {
   const [gitInfo, setGitInfo] = createSignal<GitInfo | null>(null);
   const [sessionStates, setSessionStates] = createSignal<Record<string, 'waiting' | 'processing'>>({});
   const [showNewSessionBrowser, setShowNewSessionBrowser] = createSignal(false);
+  const [explorerSessionId, setExplorerSessionId] = createSignal<string | null>(null);
 
   // System Status
   const [checkingStatus, setCheckingStatus] = createSignal(true);
   const [systemReady, setSystemReady] = createSignal(false);
   const [bridgeReady, setBridgeReady] = createSignal(true);
+  const [backendAlive, setBackendAlive] = createSignal(true);
 
   const fetchGitInfo = async (projectName: string) => {
     try {
@@ -61,12 +70,14 @@ function App() {
     try {
       const res = await fetch('http://localhost:3000/api/system/status');
       const data = await res.json();
+      setBackendAlive(true);
       setSystemReady(data.wslInstalled);
       const bb = data.browserBridge;
       const ok = bb && (bb.wslviewInstalled || bb.xdgOpenInstalled);
       setBridgeReady(!!ok);
     } catch (err) {
       console.error("System check failed", err);
+      setBackendAlive(false);
       setSystemReady(false);
     } finally {
       setCheckingStatus(false);
@@ -160,6 +171,29 @@ function App() {
       }
   };
 
+  const handleCheckout = async (hash: string) => {
+    if (!currentProject()) return;
+    if (!confirm(`Are you sure you want to checkout ${hash}? This will update your working directory.`)) return;
+
+    try {
+        const res = await fetch(`http://localhost:3000/api/projects/${currentProject()}/git-checkout`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ hash })
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert(data.message);
+            await fetchGitInfo(currentProject()!);
+        } else {
+            alert(data.error || 'Checkout failed');
+        }
+    } catch (err) {
+        console.error("Failed to checkout", err);
+        alert("Failed to checkout");
+    }
+  };
+
   // Poll for sessions occasionally
   onMount(() => {
     checkSystem();
@@ -181,18 +215,44 @@ function App() {
           <pre>{err.toString()}</pre>
         </div>
       )}>
-        <Show when={!checkingStatus()} fallback={
-          <div class="fade-in-slow" style={{
-            width: '100%', height: '100%', display: 'flex',
-            "align-items": 'center', "justify-content": 'center', color: 'var(--text-muted)'
-          }}>
-            <span class="pulse-slow">Initializing Better WSL...</span>
-          </div>
-        }>
-          <Show when={systemReady()} fallback={<ErrorScreen />}>
-            <Show when={currentProject()} fallback={
-              <WelcomeScreen onSelectProject={handleProjectSelect} />
-            }>
+        <Show
+          when={!checkingStatus()}
+          fallback={
+            <div class="fade-in-slow" style={{
+              width: '100%', height: '100%', display: 'flex',
+              "align-items": 'center', "justify-content": 'center', color: 'var(--text-muted)'
+            }}>
+              <span class="pulse-slow">Initializing Better WSL...</span>
+            </div>
+          }
+        >
+          <Show
+            when={backendAlive()}
+            fallback={
+              <div class="fade-in" style={{
+                width: '100%', height: '100%', display: 'flex', "flex-direction": 'column',
+                "align-items": 'center', "justify-content": 'center', color: 'var(--text-muted)'
+              }}>
+                <div style={{ "font-size": '18px', "font-weight": 700, "margin-bottom": '8px' }}>Backend stopped</div>
+                <div style={{ "font-size": '13px', "margin-bottom": '12px' }}>
+                  The Better WSL server was shut down. You can safely close this tab or restart using start.bat.
+                </div>
+                <button
+                  class="smooth-transition"
+                  onClick={() => { setCheckingStatus(true); checkSystem(); }}
+                  style={{
+                    padding: '8px 14px', border: '1px solid var(--accent-primary)', background: 'transparent',
+                    color: 'var(--accent-primary)', "font-weight": 700, cursor: 'pointer'
+                  }}
+                >Retry</button>
+              </div>
+            }
+          >
+            <Show when={systemReady()} fallback={<ErrorScreen />}>
+              <Show
+                when={currentProject()}
+                fallback={<WelcomeScreen onSelectProject={handleProjectSelect} />}
+              >
               <Sidebar
                 sessions={sessions()}
                 activeId={activeSessionId()}
@@ -204,6 +264,11 @@ function App() {
                 projectName={currentProject()!}
                 sessionStates={sessionStates()}
                 gitInfo={gitInfo()}
+                ctrlCBehavior={ctrlCBehavior()}
+                onDuplicate={() => currentProject() && handleSessionCreate(currentProject()!)}
+                onOpenExplorer={(id) => setExplorerSessionId(id)}
+                onCheckout={handleCheckout}
+                onCommit={() => currentProject() && fetchGitInfo(currentProject()!)}
               />
 
               <div class="fade-in" style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
@@ -253,13 +318,19 @@ function App() {
                   </Show>
                 </Match>
                 <Match when={currentView() === 'tools'}>
-                  <ToolsPanel onInstall={handleInstallTool} />
+                  <ToolsPanel 
+                    onInstall={handleInstallTool} 
+                    onShutdown={() => setBackendAlive(false)}
+                  />
                 </Match>
                 <Match when={currentView() === 'settings'}>
                   <SettingsPage
                     value={ctrlCBehavior()}
                     onChange={(v) => { setCtrlCBehavior(v); localStorage.setItem('ctrlCBehavior', v); }}
                   />
+                </Match>
+                <Match when={currentView() === 'autopilot'}>
+                  <AutoPilot project={currentProject()!} />
                 </Match>
               </Switch>
               </div>
@@ -288,8 +359,16 @@ function App() {
                          }}>
                              <span>Select Folder for New Session</span>
                          </div>
-                         <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+                         <div style={{ 
+                             flex: 1, 
+                             overflow: 'hidden', 
+                             position: 'relative',
+                             display: 'flex',
+                             "flex-direction": 'column',
+                             "min-height": 0
+                         }}>
                              <FileBrowser
+                                 initialPath="~/better-cli-workspace"
                                  onSelect={handleSessionCreate}
                                  onCancel={() => setShowNewSessionBrowser(false)}
                              />
@@ -297,8 +376,16 @@ function App() {
                     </div>
                 </div>
               </Show>
+
+              <Show when={explorerSessionId()}>
+                  <SessionFileExplorer 
+                      initialPath={`~/better-cli-workspace/${sessions().find(s => s.id === explorerSessionId())?.project || ''}`}
+                      onClose={() => setExplorerSessionId(null)}
+                  />
+              </Show>
             </Show>
           </Show>
+        </Show>
         </Show>
       </ErrorBoundary>
     </div>

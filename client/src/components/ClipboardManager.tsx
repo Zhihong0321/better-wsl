@@ -24,7 +24,7 @@ const ClipboardManager = (props: ClipboardManagerProps) => {
             if (file.type.startsWith('image/')) {
                 setImageFile(file);
                 setContent('');
-                
+
                 // Create preview
                 const reader = new FileReader();
                 reader.onload = (evt) => {
@@ -65,7 +65,7 @@ const ClipboardManager = (props: ClipboardManagerProps) => {
                 });
 
                 if (!res.ok) throw new Error('Upload failed');
-                
+
                 const data = await res.json();
                 if (data.path) {
                     textToInsert = data.path;
@@ -78,8 +78,8 @@ const ClipboardManager = (props: ClipboardManagerProps) => {
             // Insert to terminal
             props.onInsert(textToInsert);
 
-            // Optional: Clear after success? No, keep it so user can insert again if needed.
-            // But maybe show success state.
+            // Clear after success to allow fresh input
+            clear();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Operation failed');
         } finally {
@@ -115,7 +115,7 @@ const ClipboardManager = (props: ClipboardManagerProps) => {
             </div>
 
             {/* Paste Area */}
-            <div 
+            <div
                 onPaste={handlePaste}
                 style={{
                     flex: 1,
@@ -153,6 +153,17 @@ const ClipboardManager = (props: ClipboardManagerProps) => {
                     <textarea
                         value={content()}
                         onInput={(e) => setContent(e.currentTarget.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                if (e.shiftKey || e.ctrlKey) {
+                                    // Explicitly allow event propagation for new line (Shift or Ctrl + Enter)
+                                    return;
+                                }
+                                // Default behavior: Submit (Only on plain Enter)
+                                e.preventDefault();
+                                handleUploadAndInsert();
+                            }
+                        }}
                         style={{
                             width: '100%',
                             height: '100%',
@@ -169,7 +180,7 @@ const ClipboardManager = (props: ClipboardManagerProps) => {
 
                 {/* Clear Button */}
                 <Show when={content() || imageFile()}>
-                    <button 
+                    <button
                         onClick={(e) => { e.stopPropagation(); clear(); }}
                         style={{
                             position: 'absolute',
@@ -191,10 +202,10 @@ const ClipboardManager = (props: ClipboardManagerProps) => {
             {/* Actions */}
             <div style={{ display: 'flex', "flex-direction": 'column', gap: '8px' }}>
                 <Show when={error()}>
-                    <div style={{ 
-                        "font-size": '11px', 
-                        color: '#ef4444', 
-                        padding: '8px', 
+                    <div style={{
+                        "font-size": '11px',
+                        color: '#ef4444',
+                        padding: '8px',
                         background: 'rgba(239, 68, 68, 0.1)',
                         "border-radius": '4px'
                     }}>
@@ -203,10 +214,10 @@ const ClipboardManager = (props: ClipboardManagerProps) => {
                 </Show>
 
                 <Show when={lastPath()}>
-                    <div style={{ 
-                        "font-size": '11px', 
-                        color: 'var(--accent-primary)', 
-                        padding: '8px', 
+                    <div style={{
+                        "font-size": '11px',
+                        color: 'var(--accent-primary)',
+                        padding: '8px',
                         background: 'rgba(0, 255, 0, 0.05)',
                         "border-radius": '4px',
                         "word-break": 'break-all'

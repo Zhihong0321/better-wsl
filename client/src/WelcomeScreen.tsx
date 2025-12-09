@@ -103,11 +103,13 @@ export default function WelcomeScreen(props: WelcomeScreenProps) {
             <div class="scale-in" style={{
                 width: '600px',
                 "min-height": '400px',
+                "max-height": '90vh',
                 background: 'var(--bg-panel)',
                 border: '1px solid var(--border-std)',
                 display: 'flex',
                 "flex-direction": 'column',
-                "box-shadow": '0 20px 50px rgba(0,0,0,0.5)'
+                "box-shadow": '0 20px 50px rgba(0,0,0,0.5)',
+                "overflow": 'hidden'
             }}>
                 {/* Header */}
                 <div class="fade-in" style={{
@@ -130,7 +132,15 @@ export default function WelcomeScreen(props: WelcomeScreenProps) {
                 </div>
 
                 {/* Content */}
-                <div style={{ flex: 1, padding: '24px', position: 'relative' }}>
+                <div style={{ 
+                    flex: 1, 
+                    padding: showBrowser() ? '0' : '24px', 
+                    position: 'relative',
+                    display: 'flex',
+                    "flex-direction": 'column',
+                    overflow: 'hidden',
+                    "min-height": 0 // Critical for flex scrolling
+                }}>
                     <Show when={!loading()} fallback={
                         <div class="fade-in-slow" style={{ 
                             display: 'flex', 
@@ -288,12 +298,12 @@ export default function WelcomeScreen(props: WelcomeScreenProps) {
                         </Show>
 
                         <Show when={mode() === 'import'}>
-                            <h2 style={{ "font-size": '14px', "text-transform": 'uppercase', color: 'var(--text-muted)', "margin-bottom": '16px' }}>Import Folder</h2>
-                            <p style={{ "font-size": '12px', color: 'var(--text-muted)', "margin-bottom": '16px' }}>
-                                Select a folder from your Windows PC. It will be copied into the secure WSL workspace.
-                            </p>
-
                             <Show when={!showBrowser()}>
+                                <h2 style={{ "font-size": '14px', "text-transform": 'uppercase', color: 'var(--text-muted)', "margin-bottom": '16px' }}>Import Folder</h2>
+                                <p style={{ "font-size": '12px', color: 'var(--text-muted)', "margin-bottom": '16px' }}>
+                                    Select a folder from your Windows PC. It will be copied into the secure WSL workspace.
+                                </p>
+
                                 <div style={{ "margin-bottom": '16px' }}>
                                     <div style={{
                                         display: 'flex', gap: '8px', "margin-bottom": '8px',
@@ -345,13 +355,23 @@ export default function WelcomeScreen(props: WelcomeScreenProps) {
                             </Show>
 
                             <Show when={showBrowser()}>
-                                <FileBrowser
-                                    onSelect={(path) => {
-                                        setImportPath(path);
-                                        setShowBrowser(false);
-                                    }}
-                                    onCancel={() => setShowBrowser(false)}
-                                />
+                                <div style={{ 
+                                    flex: 1, 
+                                    height: '100%', 
+                                    overflow: 'hidden',
+                                    display: 'flex', 
+                                    "flex-direction": 'column',
+                                    "min-height": 0 // Critical for flex scrolling
+                                }}>
+                                    <FileBrowser
+                                        initialPath="~/better-cli-workspace"
+                                        onSelect={(path) => {
+                                            setImportPath(path);
+                                            setShowBrowser(false);
+                                        }}
+                                        onCancel={() => setShowBrowser(false)}
+                                    />
+                                </div>
                             </Show>
                         </Show>
 
