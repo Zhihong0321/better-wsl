@@ -297,10 +297,27 @@ export default function WelcomeScreen(props: WelcomeScreenProps) {
 
                         <Show when={mode() === 'import'}>
                             <Show when={!showBrowser()}>
-                                <h2 style={{ "font-size": '14px', "text-transform": 'uppercase', color: 'var(--text-muted)', "margin-bottom": '16px' }}>Mount Windows Folder</h2>
-                                <p style={{ "font-size": '12px', color: 'var(--text-muted)', "margin-bottom": '16px' }}>
-                                    Select a folder from your Windows PC. It will be directly mounted - changes in Windows/WSL sync instantly.
-                                </p>
+                                <h2 style={{ "font-size": '14px', "text-transform": 'uppercase', color: 'var(--text-muted)', "margin-bottom": '8px' }}>Mount Windows Folder to WSL</h2>
+                                
+                                {/* Mount Explanation */}
+                                <div style={{
+                                    "margin-bottom": '16px',
+                                    padding: '12px',
+                                    background: 'rgba(255, 200, 0, 0.1)',
+                                    border: '1px solid rgba(255, 200, 0, 0.3)',
+                                    "border-radius": '4px'
+                                }}>
+                                    <div style={{ "font-size": '13px', "font-weight": 'bold', color: '#FFC107', "margin-bottom": '8px', display: 'flex', "align-items": 'center', gap: '6px' }}>
+                                        <span style={{ "font-size": '16px' }}>⚠️</span>
+                                        IMPORTANT: We Mount, Not Copy
+                                    </div>
+                                    <div style={{ "font-size": '12px', color: 'var(--text-std)', "line-height": '1.5' }}>
+                                        • Your Windows folder is <strong>directly mounted</strong> (symlinked) to WSL<br/>
+                                        • <strong>No files are copied</strong> - it's the same folder in both environments<br/>
+                                        • Changes made in Windows or WSL <strong>sync instantly</strong><br/>
+                                        • Works like a bridge - both sides see the same files in real-time
+                                    </div>
+                                </div>
 
                                 <div style={{ "margin-bottom": '16px' }}>
                                     <div style={{
