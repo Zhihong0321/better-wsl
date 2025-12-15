@@ -1,5 +1,5 @@
 import { type Component, For, Show, createSignal } from 'solid-js';
-import { Terminal, Plus, Wrench, Monitor, Settings as SettingsIcon, GitBranch, Clock, Clipboard, Network, FolderOpen, RotateCcw, Send } from 'lucide-solid';
+import { Terminal, Plus, Wrench, Monitor, Settings as SettingsIcon, GitBranch, Clock, Clipboard, Network, FolderOpen, RotateCcw, Send, X } from 'lucide-solid';
 import ClipboardManager from './components/ClipboardManager';
 
 interface GitInfo {
@@ -30,10 +30,13 @@ interface SidebarProps {
     sessionStates?: Record<string, 'waiting' | 'processing'>;
     gitInfo?: GitInfo | null;
     ctrlCBehavior: 'copy' | 'cancel';
+    newlineKey?: 'shift+enter' | 'ctrl+enter' | 'alt+enter' | 'none';
+    cancelKey?: 'ctrl+end' | 'ctrl+break' | 'ctrl+d' | 'esc' | 'none';
     onDuplicate: () => void;
     onOpenExplorer: (sessionId: string) => void;
     onCheckout: (hash: string) => void;
     onCommit?: () => void;
+    onCloseSession: (sessionId: string) => void;
 }
 
 const Sidebar: Component<SidebarProps> = (props) => {
@@ -378,10 +381,6 @@ const Sidebar: Component<SidebarProps> = (props) => {
                                             class={`smooth-transition ${isActive() ? (state() === 'processing' ? 'processing-breath' : 'aurora-breath') : 'fade-in'}`}
                                             onClick={() => {
                                                 props.onSelect(session.id);
-                                                // Keep view as is if clipboard, else switch to sessions?
-                                                // If user clicks a session, they probably want to see it.
-                                                // If they are in clipboard mode, they might want to stay there.
-                                                // But usually clicking a session implies switching to it.
                                                 if (props.activeView !== 'clipboard') {
                                                     props.onViewChange('sessions');
                                                 }
@@ -399,7 +398,7 @@ const Sidebar: Component<SidebarProps> = (props) => {
                                                 "border-bottom": '1px dotted var(--border-std)'
                                             }}
                                         >
-                                            <div style={{ display: 'flex', "flex-direction": 'column', "line-height": '1.2' }}>
+                                            <div style={{ display: 'flex', "flex-direction": 'column', "line-height": '1.2', flex: 1 }}>
                                                 <span style={{ "font-family": 'var(--font-stack)', "font-weight": 500 }}>
                                                     {session.project || 'Session'}
                                                 </span>
@@ -420,7 +419,6 @@ const Sidebar: Component<SidebarProps> = (props) => {
                                                 }}
                                                 title="Open File Browser"
                                                 style={{
-                                                    "margin-left": 'auto',
                                                     padding: '4px',
                                                     "border-radius": '4px',
                                                     color: isActive() ? 'var(--bg-app)' : 'var(--text-muted)',
@@ -431,6 +429,27 @@ const Sidebar: Component<SidebarProps> = (props) => {
                                             >
                                                 <FolderOpen size={14} />
                                             </div>
+
+                                            {/* Close Session Button */}
+                                            <div
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (confirm(`Close session ${session.project || session.id.substring(0, 6)}?`)) {
+                                                        props.onCloseSession(session.id);
+                                                    }
+                                                }}
+                                                title="Close Session"
+                                                style={{
+                                                    padding: '4px',
+                                                    "border-radius": '4px',
+                                                    color: isActive() ? 'var(--bg-app)' : '#ff6b6b',
+                                                    cursor: 'pointer'
+                                                }}
+                                                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,107,107,0.2)'}
+                                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                            >
+                                                <X size={14} />
+                                            </div>
                                         </button>
                                     );
                                 }}
@@ -438,7 +457,7 @@ const Sidebar: Component<SidebarProps> = (props) => {
                         </div>
                     </>
                 }>
-                    <ClipboardManager onInsert={props.onInsert} />
+                    <ClipboardManager onInsert={props.onInsert} sessionId={props.activeId} />
                 </Show>
             </div>
 
@@ -448,11 +467,27 @@ const Sidebar: Component<SidebarProps> = (props) => {
                     Shortcuts
                 </div>
                 <div style={{ display: 'grid', "grid-template-columns": 'auto 1fr', gap: '6px', "font-size": '11px', color: 'var(--text-std)' }}>
-                    <span style={{ color: 'var(--accent-primary)', "font-family": 'monospace' }}>Shift+Enter</span>
-                    <span>New Line</span>
+                    <Show when={props.newlineKey && props.newlineKey !== 'none'}>
+                        <span style={{ color: 'var(--accent-primary)', "font-family": 'monospace' }}>
+                            {props.newlineKey === 'shift+enter' ? 'Shift+Enter' : 
+                             props.newlineKey === 'ctrl+enter' ? 'Ctrl+Enter' : 
+                             'Alt+Enter'}
+                        </span>
+                        <span>New Line (AI CLIs)</span>
+                    </Show>
 
                     <span style={{ color: 'var(--accent-primary)', "font-family": 'monospace' }}>Ctrl+C</span>
                     <span style={{ "text-transform": 'capitalize' }}>{props.ctrlCBehavior || 'Copy'}</span>
+
+                    <Show when={props.ctrlCBehavior === 'copy' && props.cancelKey && props.cancelKey !== 'none'}>
+                        <span style={{ color: 'var(--accent-primary)', "font-family": 'monospace' }}>
+                            {props.cancelKey === 'ctrl+end' ? 'Ctrl+End' : 
+                             props.cancelKey === 'ctrl+break' ? 'Ctrl+Break' : 
+                             props.cancelKey === 'ctrl+d' ? 'Ctrl+D' : 
+                             'Esc'}
+                        </span>
+                        <span>Cancel/Interrupt</span>
+                    </Show>
 
                     <span style={{ color: 'var(--accent-primary)', "font-family": 'monospace' }}>Paste</span>
                     <span>Use Paste Inserter</span>

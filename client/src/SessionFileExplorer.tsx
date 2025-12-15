@@ -150,6 +150,7 @@ export default function SessionFileExplorer(props: SessionFileExplorerProps) {
                                     // Handle File Upload
                                     for (let i = 0; i < e.dataTransfer.files.length; i++) {
                                         const file = e.dataTransfer.files[i];
+                                        if (!file) continue; // Skip null files
                                         // Read file as ArrayBuffer/Base64
                                         const reader = new FileReader();
                                         reader.onload = async (evt) => {

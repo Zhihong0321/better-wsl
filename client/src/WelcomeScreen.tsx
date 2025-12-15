@@ -58,7 +58,6 @@ export default function WelcomeScreen(props: WelcomeScreenProps) {
     const handleImport = async () => {
         if (!importPath()) return;
         setLoading(true);
-        setProgressFile('Preparing...');
         try {
             const res = await fetch('http://localhost:3000/api/projects/import', {
                 method: 'POST',
@@ -75,7 +74,6 @@ export default function WelcomeScreen(props: WelcomeScreenProps) {
             setError(err.message);
         } finally {
             setLoading(false);
-            setProgressFile('');
         }
     };
 
@@ -158,7 +156,7 @@ export default function WelcomeScreen(props: WelcomeScreenProps) {
                             <div style={{ display: 'flex', "align-items": 'center', gap: '10px', color: 'var(--text-muted)' }}>
                                 <Loader class="spin" /> 
                                 <span>
-                                    {progressFile() ? 'Importing Files...' : 'Initializing...'}
+                                    {progressFile() ? 'Mounting Folder...' : 'Initializing...'}
                                 </span>
                             </div>
                             <Show when={progressFile()}>
@@ -251,7 +249,7 @@ export default function WelcomeScreen(props: WelcomeScreenProps) {
                                     onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-std)'}
                                     onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
                                 >
-                                    <Upload size={16} /> Import from Windows
+                                    <Upload size={16} /> Mount from Windows
                                 </button>
                             </div>
                         </Show>
@@ -299,9 +297,9 @@ export default function WelcomeScreen(props: WelcomeScreenProps) {
 
                         <Show when={mode() === 'import'}>
                             <Show when={!showBrowser()}>
-                                <h2 style={{ "font-size": '14px', "text-transform": 'uppercase', color: 'var(--text-muted)', "margin-bottom": '16px' }}>Import Folder</h2>
+                                <h2 style={{ "font-size": '14px', "text-transform": 'uppercase', color: 'var(--text-muted)', "margin-bottom": '16px' }}>Mount Windows Folder</h2>
                                 <p style={{ "font-size": '12px', color: 'var(--text-muted)', "margin-bottom": '16px' }}>
-                                    Select a folder from your Windows PC. It will be copied into the secure WSL workspace.
+                                    Select a folder from your Windows PC. It will be directly mounted - changes in Windows/WSL sync instantly.
                                 </p>
 
                                 <div style={{ "margin-bottom": '16px' }}>
@@ -339,7 +337,7 @@ export default function WelcomeScreen(props: WelcomeScreenProps) {
                                             opacity: importPath() ? 1 : 0.5
                                         }}
                                     >
-                                        IMPORT SELECTED <Upload size={16} />
+                                        MOUNT FOLDER <Upload size={16} />
                                     </button>
                                     <button
                                         onClick={() => { setMode('list'); setError(''); setImportPath(''); }}
@@ -364,7 +362,6 @@ export default function WelcomeScreen(props: WelcomeScreenProps) {
                                     "min-height": 0 // Critical for flex scrolling
                                 }}>
                                     <FileBrowser
-                                        initialPath="~/better-cli-workspace"
                                         onSelect={(path) => {
                                             setImportPath(path);
                                             setShowBrowser(false);

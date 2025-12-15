@@ -3,6 +3,7 @@ import { Clipboard, ArrowRight, Trash2, Loader2 } from 'lucide-solid';
 
 interface ClipboardManagerProps {
     onInsert: (text: string) => void;
+    sessionId?: string | null;
 }
 
 const ClipboardManager = (props: ClipboardManagerProps) => {
@@ -21,16 +22,43 @@ const ClipboardManager = (props: ClipboardManagerProps) => {
         // 1. Check for Images
         if (e.clipboardData?.files && e.clipboardData.files.length > 0) {
             const file = e.clipboardData.files[0];
-            if (file.type.startsWith('image/')) {
+            if (file && file.type.startsWith('image/')) {
+                // Validate image size (50MB limit)
+                const MAX_SIZE = 45 * 1024 * 1024; // 45MB
+                if (file.size > MAX_SIZE) {
+                    setError('Image too large. Maximum size: 45MB');
+                    return;
+                }
+
                 setImageFile(file);
                 setContent('');
 
-                // Create preview
-                const reader = new FileReader();
-                reader.onload = (evt) => {
-                    setImagePreview(evt.target?.result as string);
-                };
-                reader.readAsDataURL(file);
+                // Create preview with error handling
+                try {
+                    const preview = await new Promise<string>((resolve, reject) => {
+                        const reader = new FileReader();
+                        
+                        reader.onload = (evt) => {
+                            const result = evt.target?.result;
+                            if (typeof result === 'string') {
+                                resolve(result);
+                            } else {
+                                reject(new Error('Failed to read image'));
+                            }
+                        };
+                        
+                        reader.onerror = () => {
+                            reject(new Error(reader.error?.message || 'FileReader error'));
+                        };
+                        
+                        reader.readAsDataURL(file);
+                    });
+                    
+                    setImagePreview(preview);
+                } catch (err) {
+                    setError(err instanceof Error ? err.message : 'Failed to load image preview');
+                    setImageFile(null);
+                }
                 return;
             }
         }
@@ -54,24 +82,37 @@ const ClipboardManager = (props: ClipboardManagerProps) => {
             let textToInsert = content();
 
             if (imageFile()) {
-                // Upload Image
+                // Validate image preview exists
+                if (!imagePreview()) {
+                    throw new Error('Image preview not ready');
+                }
+
+                // Upload image to server
                 const res = await fetch('http://localhost:3000/api/upload', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         image: imagePreview(),
-                        filename: imageFile()?.name
+                        filename: imageFile()!.name,
+                        sessionId: props.sessionId
                     })
                 });
 
-                if (!res.ok) throw new Error('Upload failed');
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.error || 'Upload failed');
+                }
 
                 const data = await res.json();
-                if (data.path) {
-                    textToInsert = data.path;
-                    setLastPath(data.path);
+                const filePath = data.path;
+                setLastPath(filePath);
+
+                // Combine path and text if needed
+                // Format: "path text" or just "path"
+                if (textToInsert) {
+                    textToInsert = `${filePath} ${textToInsert}`;
                 } else {
-                    throw new Error('Server returned no path');
+                    textToInsert = filePath;
                 }
             }
 
@@ -81,7 +122,9 @@ const ClipboardManager = (props: ClipboardManagerProps) => {
             // Clear after success to allow fresh input
             clear();
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Operation failed');
+            const errorMsg = err instanceof Error ? err.message : 'Operation failed';
+            setError(errorMsg);
+            console.error('Clipboard upload error:', err);
         } finally {
             setLoading(false);
         }
@@ -145,7 +188,7 @@ const ClipboardManager = (props: ClipboardManagerProps) => {
                     <div style={{ display: 'flex', "flex-direction": 'column', "align-items": 'center', gap: '8px', width: '100%' }}>
                         <img src={imagePreview()!} style={{ "max-width": '100%', "max-height": '150px', "object-fit": 'contain', border: '1px solid var(--border-std)' }} />
                         <div style={{ "font-size": '10px', color: 'var(--text-std)' }}>{imageFile()?.name}</div>
-                        <div style={{ "font-size": '10px', color: 'var(--text-muted)' }}>{(imageFile()!.size / 1024).toFixed(1)} KB</div>
+                        <div style={{ "font-size": '10px', color: 'var(--text-muted)' }}>{imageFile()?.size ? (imageFile()!.size / 1024).toFixed(1) + ' KB' : 'Unknown size'}</div>
                     </div>
                 </Show>
 

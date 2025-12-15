@@ -1,292 +1,436 @@
-# Better CLI - WSL AI Multi-Session Wrapper
+# Better CLI 🚀
 
-A powerful WSL-based terminal wrapper designed for AI-powered coding workflows with multi-session management, network monitoring, and tool installation.
+> **A powerful, modern terminal wrapper for Windows Subsystem for Linux (WSL)**  
+> Built for AI-powered coding workflows with intelligent multi-session management, smart paste handling, and advanced customization.
 
-## 🌟 Features
+[![Windows 11](https://img.shields.io/badge/Windows-11-blue?logo=windows)](https://www.microsoft.com/windows)
+[![WSL 2](https://img.shields.io/badge/WSL-2-orange?logo=linux)](https://docs.microsoft.com/windows/wsl/)
+[![Node.js](https://img.shields.io/badge/Node.js-18+-green?logo=node.js)](https://nodejs.org/)
+[![SolidJS](https://img.shields.io/badge/SolidJS-1.9-blue?logo=solid)](https://www.solidjs.com/)
 
-### ✅ Multi-Session Management
-- Create and manage multiple WSL terminal sessions
-- Switch between sessions seamlessly
-- Persistent terminal history
-- Project-based workspace organization
+---
 
-### ✅ Network Latency Monitoring ⭐ NEW!
-- **Real-time connection detection** - See which AI APIs you're connecting to
-- **Latency measurement** - Track min/avg/max ping times
-- **VPN performance testing** - Compare network performance with/without VPN
-- **AI tool detection** - Automatically identify running AI coding tools
-- **Service identification** - Recognize OpenAI, Anthropic, Google, GitHub APIs
+## 🎯 Why Better CLI?
 
-### ✅ Essential Tools Management
-- Check installation status of development tools
-- Install tools directly from the UI
-- Version verification
-- Conflict detection (WSL vs Windows)
+Modern AI coding tools like **Aider**, **Cursor**, **Claude**, and **GitHub Copilot** require seamless terminal interaction. Better CLI eliminates friction by providing:
 
-### ✅ Workspace Management
-- Dedicated Linux workspace (`~/better-cli-workspace`)
-- Import projects from Windows filesystem
-- Browse and create project folders
-- Disk space monitoring
+✨ **Smart clipboard handling** - Paste images directly as base64  
+⚡ **Configurable shortcuts** - Remap keys to match your workflow  
+🎨 **Multi-session terminals** - Work on multiple projects simultaneously  
+🔧 **One-click WSL setup** - Initialize your dev environment in minutes  
+🌐 **Git integration** - Time-travel through commits visually  
+📊 **Auto-Pilot mode** - Coordinate multiple AI agents for complex tasks
 
-### ✅ Modern UI
-- Clean, responsive design
-- Dark theme optimized for long coding sessions
-- Smooth animations and transitions
-- Real-time terminal output
+---
+
+## 🌟 Key Features
+
+### 🖥️ **Advanced Terminal Management**
+- **Multi-session support** - Run unlimited WSL terminals in tabs
+- **Smart paste inserter** - Paste images/code with preview before sending
+- **Configurable keyboard shortcuts**:
+  - `Shift+Enter` → New line in AI CLIs (remappable to `Ctrl+Enter` or `Alt+Enter`)
+  - `Ctrl+C` → Copy text OR cancel process (your choice)
+  - `Ctrl+End` → Dedicated cancel key when Ctrl+C is set to copy
+- **Session activity tracking** - Visual indicators for running/waiting states
+- **Auto-session detection** - Resumes last session on startup
+
+### 🎨 **Smart Clipboard Manager**
+- **Image paste support** - Drag/drop or paste images (up to 45MB)
+- **Base64 auto-encoding** - Perfect for AI CLI tools
+- **Text sanitization** - Prevents accidental command execution
+- **Rich preview** - See images/text before sending to terminal
+
+### 🔧 **WSL Setup Wizard**
+- **One-click initialization** - Launch `setup.bat` and follow the guide
+- **Cross-distro support** - Works with Fedora, Ubuntu, Debian
+- **Auto package manager detection** - Uses `dnf` or `apt` automatically
+- **Essential tools installer**:
+  - ✅ Node.js (via fnm)
+  - ✅ npm with global packages
+  - ✅ sudo, curl, unzip
+  - ✅ Git configuration
+- **Progress tracking** - Real-time feedback during installation
+
+### 🌐 **Git Time Travel**
+- **Visual commit history** - Browse commits with one click
+- **Instant checkout** - Jump to any commit in your timeline
+- **Branch tracking** - See current branch and remote status
+- **Quick commits** - Commit from the sidebar instantly
+
+### 🤖 **Auto-Pilot Mode** (Experimental)
+- **Dual-agent coordination** - Planner + Coder working together
+- **Task delegation** - Planner instructs Coder via terminal
+- **Real-time communication** - Watch agents collaborate
+
+### ⚙️ **WSL Distribution Management**
+- **List all distros** - See installed distributions and their status
+- **Set default** - Change which distro launches by default
+- **Terminate processes** - Stop running distributions safely
+- **Update WSL** - One-click WSL version updates
+
+### 📁 **File System Integration**
+- **Import from Windows** - Browse PC drives and mount folders
+- **Workspace management** - Organized `~/better-cli-workspace` structure
+- **File explorer per session** - Browse files within each terminal
+- **Symlink mounting** - Fast, efficient folder sharing
+
+---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Windows 11 with WSL2 installed
-- Node.js installed (both Windows and WSL)
+
+- **Windows 11** with WSL 2 enabled
+- **Node.js 18+** installed on Windows
+- Git (optional, for version control features)
+
+> **Don't have WSL?** No problem! Use our setup wizard (see below).
 
 ### Installation
 
-1. **Clone the repository:**
-   ```bash
-   git clone <repository-url>
-   cd better-cli
-   ```
+```bash
+# Clone the repository
+git clone https://github.com/your-username/better-cli.git
+cd better-cli
 
-2. **Install dependencies:**
-   ```bash
-   cd server && npm install
-   cd ../client && npm install
-   ```
+# Install dependencies
+cd server && npm install
+cd ../client && npm install
+```
 
-### 🎯 One-Click Launch (Recommended)
+### 🎯 Launch (Recommended)
 
-Simply **double-click** one of these files:
+**Double-click** one of these files:
 
-- **`start-silent.vbs`** ⭐ - Silent launch (no terminal windows)
-- **`start.bat`** - Normal launch (shows server logs)
-- **`start.ps1`** - PowerShell launch (colored output)
+| File | Description | Use When |
+|------|-------------|----------|
+| **`start-silent.vbs`** ⭐ | Silent background launch | Daily use (no windows) |
+| **`start.bat`** | Shows server logs | Debugging issues |
+| **`start.ps1`** | PowerShell with colors | You prefer PowerShell |
 
-The browser will open automatically! 🎉
+**Browser opens automatically** at `http://localhost:5173` 🎉
 
 **To stop:** Double-click `stop.bat`
 
-📖 **Full launcher guide:** [LAUNCHER_GUIDE.md](./LAUNCHER_GUIDE.md)
-
-### 🔧 Manual Start (Advanced)
-
-<details>
-<summary>Click to expand manual startup commands</summary>
-
-1. **Start the server:**
-   ```bash
-   cd server
-   node index.js
-   ```
-
-2. **Start the client (in a new terminal):**
-   ```bash
-   cd client
-   npm run dev -- --host
-   ```
-
-3. **Open your browser:**
-   ```
-   http://localhost:5173
-   ```
-
-</details>
-
-## 📊 Network Monitoring
-
-### Quick Test
-
-Test network latency to your AI APIs:
-
-```bash
-cd server
-node ping-test.js
-```
-
-**Sample Output:**
-```
-🌐 Network Status
-══════════════════════════════════════════════════
-🤖 Running: aider
-🔗 Active Connections: 2
-
-📊 Latency Results:
-──────────────────────────────────────────────────
-✅ OpenAI API
-   IP: 13.107.42.14  |  Latency: 48.7ms  |  Loss: 0%
-✅ Google Gemini API
-   IP: 142.250.185.10  |  Latency: 18.9ms  |  Loss: 0%
-──────────────────────────────────────────────────
-
-📈 Average Latency: 33.80ms (🚀 Excellent)
-✅ Successful: 2/2
-```
-
-### VPN Performance Testing
-
-1. **Test without VPN:**
-   ```bash
-   node ping-test.js
-   # Note: Average Latency: 45ms
-   ```
-
-2. **Connect to VPN**
-
-3. **Test with VPN:**
-   ```bash
-   node ping-test.js
-   # Note: Average Latency: 180ms
-   ```
-
-4. **Compare and choose the best VPN!**
-
-📖 **Full documentation:** [NETWORK_MONITORING.md](./NETWORK_MONITORING.md)
-
-## 🛠️ API Endpoints
-
-### Session Management
-- `POST /api/sessions` - Create new session
-- `GET /api/sessions` - List all sessions
-- `GET /api/sessions/:id` - Check session status
-- `POST /api/sessions/:id/input` - Send input to session
-
-### Network Monitoring ⭐ NEW!
-- `GET /api/sessions/:id/network-info` - Get latency metrics and connection info
-
-### Tools Management
-- `POST /api/tools/check` - Check tool installation
-- `POST /api/tools/install` - Install tool in WSL
-- `POST /api/tools/uninstall` - Uninstall tool
-
-### Workspace Management
-- `GET /api/projects` - List workspace projects
-- `POST /api/projects` - Create new project folder
-- `POST /api/projects/import` - Import from Windows
-
-### System Status
-- `GET /api/system/status` - WSL and disk space info
-- `GET /api/system/drives` - List Windows drives
-- `POST /api/system/dirs` - Browse Windows directories
-
-## 🎯 Use Cases
-
-### AI Coding Workflow Optimization
-Perfect for developers using AI coding assistants like:
-- **Aider** - AI pair programming
-- **Codex** - OpenAI code generation
-- **Cursor** - AI-first code editor
-- **GitHub Copilot** - Code completion
-- **Claude Code** - Anthropic's coding assistant
-
-**Why monitor latency?**
-- Identify slow API responses affecting your flow
-- Test if your VPN improves or degrades performance
-- Compare different network configurations
-- Ensure optimal coding experience
-
-### Multi-Project Development
-- Work on multiple projects simultaneously
-- Quick project switching
-- Isolated terminal environments
-
-### Tool Installation & Management
-- Centralized tool installation
-- Version consistency across projects
-- Easy conflict resolution
-
-## 📁 Project Structure
-
-```
-better-cli/
-├── client/                 # Vue.js frontend
-│   ├── src/
-│   │   ├── App.vue        # Main application
-│   │   ├── components/    # UI components
-│   │   └── style.css      # Global styles
-│   └── package.json
-├── server/                # Node.js backend
-│   ├── index.js          # Express server + Socket.io
-│   ├── ping-test.js      # Quick latency test utility
-│   └── test-network-monitor.js  # Detailed network test
-├── NETWORK_MONITORING.md  # Network monitoring docs
-├── IMPLEMENTATION_SUMMARY.md  # Feature summary
-└── spec.md               # Original specification
-```
-
-## 🔧 Development
-
-### Server (Port 3000)
-```bash
-cd server
-node index.js
-```
-
-### Client (Port 5173)
-```bash
-cd client
-npm run dev -- --host
-```
-
-### Build for Production
-```bash
-cd client
-npm run build
-```
-
-## 📚 Documentation
-
-- **[LAUNCHER_GUIDE.md](./LAUNCHER_GUIDE.md)** ⭐ - One-click launcher setup and usage
-- **[NETWORK_MONITORING.md](./NETWORK_MONITORING.md)** - Complete guide to network monitoring feature
-- **[QUICK_REFERENCE.md](./QUICK_REFERENCE.md)** - Quick reference for network monitoring
-- **[IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md)** - Feature implementation details
-- **[ESSENTIAL_TOOLS_FEATURE.md](./ESSENTIAL_TOOLS_FEATURE.md)** - Tool management guide
-- **[spec.md](./spec.md)** - Original project specification
-
-## 🐛 Troubleshooting
-
-### WSL not detected
-- Ensure WSL2 is installed: `wsl --version`
-- Check WSL status: `wsl --list`
-
-### Network monitoring shows no connections
-- Make sure an AI tool is running in the session
-- Verify network connectivity: `wsl ping google.com`
-- Check that the tool is actively making API calls
-
-### Port already in use
-- Server: Change port in `server/index.js` (default: 3000)
-- Client: Change port in `vite.config.js` (default: 5173)
-
-## 🚀 Future Enhancements
-
-### Planned Features:
-- [ ] Historical latency graphs
-- [ ] Continuous background monitoring
-- [ ] Alert system for high latency
-- [ ] Data export (CSV/JSON)
-- [ ] VPN comparison dashboard
-- [ ] Cloud sync for workspace
-- [ ] Terminal recording/replay
-- [ ] Collaborative sessions
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit issues or pull requests.
-
-## 📄 License
-
-[Your License Here]
-
-## 🙏 Acknowledgments
-
-Built with:
-- [Vue.js](https://vuejs.org/) - Frontend framework
-- [Express](https://expressjs.com/) - Backend server
-- [Socket.io](https://socket.io/) - Real-time communication
-- [node-pty](https://github.com/microsoft/node-pty) - Terminal emulation
-- [xterm.js](https://xtermjs.org/) - Terminal UI
+> **Tip:** Run `create-desktop-shortcut.bat` to add a desktop icon!
 
 ---
 
-**Made with ❤️ for AI-powered coding workflows**
+## 🔧 First-Time WSL Setup
+
+**Don't have WSL or essential tools?** No worries!
+
+1. **Run the setup wizard:**
+   ```bash
+   setup.bat
+   ```
+
+2. **Select your WSL distribution** (or install one from Microsoft Store)
+
+3. **Click "Start Setup"** and wait ~5 minutes
+
+4. **Done!** Node.js, npm, curl, and sudo are now installed
+
+📖 **Detailed guide:** [SETUP_README.md](./SETUP_README.md)
+
+---
+
+## ⌨️ Keyboard Shortcuts
+
+### Terminal
+- **Shift+Enter** (default) → New line in AI CLIs *(remappable in Settings)*
+- **Ctrl+C** → Copy selection OR Cancel process *(configurable)*
+- **Ctrl+End** (default) → Cancel/Interrupt when Ctrl+C = Copy
+- **Paste** → Opens smart paste inserter with preview
+
+### Navigation
+- **Tabs** → Switch between Sessions, Clipboard, Tools, Settings
+- **Ctrl+Click** → Open file browser for a session
+
+---
+
+## 🏗️ Architecture
+
+### Tech Stack
+
+**Frontend:**
+- [SolidJS 1.9](https://www.solidjs.com/) - Reactive UI framework
+- [xterm.js](https://xtermjs.org/) - Terminal emulation
+- [Lucide Icons](https://lucide.dev/) - Beautiful icon set
+- [Vite](https://vitejs.dev/) - Lightning-fast build tool
+
+**Backend:**
+- [Node.js](https://nodejs.org/) - JavaScript runtime
+- [Express 5](https://expressjs.com/) - Web framework
+- [Socket.IO](https://socket.io/) - Real-time bidirectional communication
+- [node-pty](https://github.com/microsoft/node-pty) - Native terminal emulation
+
+### Project Structure
+
+```
+better-cli/
+├── client/                    # SolidJS frontend
+│   ├── src/
+│   │   ├── App.tsx           # Main application shell
+│   │   ├── Terminal.tsx      # Terminal component with xterm.js
+│   │   ├── Sidebar.tsx       # Navigation and session list
+│   │   ├── ClipboardManager.tsx  # Smart paste handler
+│   │   ├── Setup.tsx         # WSL initialization wizard
+│   │   ├── Settings.tsx      # WSL & keyboard settings
+│   │   ├── FileBrowser.tsx   # Windows drive browser
+│   │   ├── AutoPilot.tsx     # Dual-agent coordination
+│   │   └── components/       # Reusable UI components
+│   ├── setup.html            # Standalone setup entry point
+│   └── vite.config.ts        # Multi-page Vite config
+│
+├── server/                    # Node.js backend
+│   ├── index.js              # Main Express server + Socket.IO
+│   ├── setup-server.js       # Dedicated setup API (port 3001)
+│   └── public/               # Static assets
+│
+├── setup.bat                  # Standalone WSL setup launcher
+├── start-silent.vbs           # Silent application launcher
+├── start.bat                  # Standard launcher with logs
+├── stop.bat                   # Graceful shutdown
+└── create-desktop-shortcut.bat # Desktop icon creator
+```
+
+---
+
+## 🎯 Use Cases
+
+### 🤖 **AI-Powered Coding**
+Perfect for developers using:
+- [Aider](https://aider.chat/) - AI pair programming in the terminal
+- [Cursor](https://cursor.sh/) - AI-first code editor
+- [Claude CLI](https://claude.ai/) - Anthropic's command-line assistant
+- [GitHub Copilot CLI](https://github.com/features/copilot) - Natural language commands
+
+**Why Better CLI?**
+- ✅ Paste images directly as base64 (for Claude, Gemini, GPT-4V)
+- ✅ `Shift+Enter` for multi-line prompts (no accidental sends)
+- ✅ Multi-session = work on multiple projects with different AI contexts
+
+### 💻 **Multi-Project Development**
+- Run frontend dev server in Session 1
+- Run backend API in Session 2  
+- Run database in Session 3
+- All in one organized interface
+
+### 📦 **DevOps & Tooling**
+- Manage tools via UI instead of memorizing commands
+- One-click tool installation across projects
+- Cross-distro support (Fedora, Ubuntu, Debian)
+
+---
+
+## 📚 Documentation
+
+### Getting Started
+- **[LAUNCHER_GUIDE.md](./LAUNCHER_GUIDE.md)** - One-click launcher setup
+- **[SETUP_README.md](./SETUP_README.md)** - WSL initialization guide
+- **[QUICK_START_SETUP.md](./QUICK_START_SETUP.md)** - From zero to coding in 10 minutes
+
+### Features
+- **[ESSENTIAL_TOOLS_FEATURE.md](./ESSENTIAL_TOOLS_FEATURE.md)** - Tool management
+- **[SESSION_SUMMARY.md](./SESSION_SUMMARY.md)** - Feature overview
+- **[IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md)** - Technical details
+
+### Architecture
+- **[NETWORK_ARCHITECTURE.md](./NETWORK_ARCHITECTURE.md)** - System design
+- **[spec.md](./spec.md)** - Original specification
+
+---
+
+## 🐛 Troubleshooting
+
+<details>
+<summary><b>WSL not detected</b></summary>
+
+**Symptoms:** "WSL not installed" message on startup
+
+**Solutions:**
+```bash
+# Check if WSL is installed
+wsl --version
+
+# Install WSL (PowerShell as Admin)
+wsl --install
+
+# List installed distributions
+wsl --list --verbose
+
+# Set default distro (if you have multiple)
+wsl --set-default Ubuntu
+```
+
+Still not working? Run `setup.bat` for guided installation.
+</details>
+
+<details>
+<summary><b>Port already in use</b></summary>
+
+**Symptoms:** "EADDRINUSE" error when starting
+
+**Solutions:**
+```bash
+# Check what's using port 3000
+netstat -ano | findstr :3000
+
+# Kill the process (replace PID)
+taskkill /PID <process-id> /F
+
+# Or change ports:
+# Server: Edit server/index.js (line ~2300)
+# Client: Edit client/vite.config.ts
+```
+</details>
+
+<details>
+<summary><b>Keyboard shortcuts not working</b></summary>
+
+**Symptoms:** `Shift+Enter` doesn't create newline
+
+**Explanation:**  
+Keyboard shortcuts are **CLI-dependent**. Most AI CLIs use `Alt+Enter` by default.
+
+**Solution:**
+1. Open **Settings** (⚙️ icon)
+2. Under "Terminal Behavior" → "New line shortcut"
+3. Try different combinations:
+   - `Alt+Enter` (works with Gemini, Codex)
+   - `Shift+Enter` (user preference)
+   - `Ctrl+Enter` (alternative)
+
+Better CLI **translates** your chosen key to `Alt+Enter` internally.
+</details>
+
+<details>
+<summary><b>Images not pasting in terminal</b></summary>
+
+**Symptoms:** Paste doesn't show preview dialog
+
+**Cause:** You're pasting directly in terminal. Better CLI intercepts paste for safety.
+
+**Solution:**
+1. Use the **Clipboard Manager** (📋 tab)
+2. Paste image there → preview appears
+3. Click "Insert into Terminal"
+4. Image is sent as base64
+
+**Why?** Prevents accidental execution of pasted commands.
+</details>
+
+<details>
+<summary><b>Setup wizard fails at Node.js step</b></summary>
+
+**Symptoms:** "unzip: command not found"
+
+**Fix:** Already patched! Update to latest version:
+```bash
+git pull origin main
+```
+
+The setup now auto-installs `unzip` before downloading Node.js.
+</details>
+
+---
+
+## 🚀 Roadmap
+
+### ✅ **Completed** (v1.0)
+- [x] Multi-session terminal management
+- [x] Smart clipboard with image support
+- [x] Configurable keyboard shortcuts
+- [x] WSL setup wizard
+- [x] Git time-travel integration
+- [x] Auto-session detection
+- [x] File system browser
+- [x] WSL distribution management
+
+### 🎯 **Next Up** (v1.1)
+- [ ] Historical latency graphs (network monitoring)
+- [ ] Alert system for high latency
+- [ ] Session recording/replay
+- [ ] Theme customization
+- [ ] Export/import workspace configs
+
+### 🔮 **Future Ideas** (v2.0)
+- [ ] Cloud sync for workspace
+- [ ] Collaborative sessions (multi-user)
+- [ ] Plugin system for extensions
+- [ ] Docker container management
+- [ ] SSH tunnel integration
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Here's how:
+
+1. **Fork the repository**
+2. **Create a feature branch:**
+   ```bash
+   git checkout -b feature/amazing-feature
+   ```
+3. **Commit your changes:**
+   ```bash
+   git commit -m 'Add amazing feature'
+   ```
+4. **Push to your fork:**
+   ```bash
+   git push origin feature/amazing-feature
+   ```
+5. **Open a Pull Request**
+
+### Development Setup
+
+```bash
+# Clone and install
+git clone https://github.com/your-username/better-cli.git
+cd better-cli
+cd server && npm install
+cd ../client && npm install
+
+# Run in development mode
+# Terminal 1:
+cd server && node index.js
+
+# Terminal 2:
+cd client && npm run dev
+```
+
+### Code Style
+- **Frontend:** SolidJS components with TypeScript
+- **Backend:** CommonJS with async/await
+- **Formatting:** 2 spaces, semicolons optional
+
+---
+
+## 📄 License
+
+**MIT License** - feel free to use in your projects!
+
+---
+
+## 🙏 Acknowledgments
+
+Built with amazing open-source tools:
+- [SolidJS](https://www.solidjs.com/) - Reactive UI framework
+- [xterm.js](https://xtermjs.org/) - Terminal emulation
+- [Express](https://expressjs.com/) - Web server
+- [Socket.IO](https://socket.io/) - Real-time communication
+- [node-pty](https://github.com/microsoft/node-pty) - PTY bindings
+
+Special thanks to the WSL team at Microsoft for making Linux on Windows seamless.
+
+---
+
+<div align="center">
+
+**Made with ❤️ for developers who love AI-powered workflows**
+
+[⬆ Back to Top](#better-cli-)
+
+</div>

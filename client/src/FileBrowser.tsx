@@ -34,17 +34,20 @@ export default function FileBrowser(props: FileBrowserProps) {
     const fetchDirs = async (path: string) => {
         setLoading(true);
         try {
+            console.log('[FileBrowser] Fetching dirs for path:', path);
             const res = await fetch('http://localhost:3000/api/system/dirs', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ path })
             });
             const data = await res.json();
+            console.log('[FileBrowser] Received data:', data);
             if (data.error) throw new Error(data.error);
 
             setFolders(data);
             setCurrentPath(path);
         } catch (err: any) {
+            console.error('[FileBrowser] Error:', err);
             setError(err.message);
         } finally {
             setLoading(false);
@@ -193,7 +196,7 @@ export default function FileBrowser(props: FileBrowserProps) {
                                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                                 >
                                     <Folder size={14} color="var(--accent-primary)" />
-                                    {folder}
+                                    <span style={{ color: '#ffffff', "font-size": '13px' }}>{folder}</span>
                                 </button>
                             )}
                         </For>

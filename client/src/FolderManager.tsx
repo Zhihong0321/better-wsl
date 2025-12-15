@@ -105,6 +105,39 @@ const FolderManager: Component = () => {
         }
     };
 
+    const handleMount = async () => {
+        const items = Array.from(selectedWin());
+        
+        if (items.length === 0) return;
+        
+        if (!confirm(`Mount ${items.length} items from Windows to WSL? This creates symlinks - changes sync instantly between Windows and WSL.`)) return;
+
+        setLoading(true);
+        try {
+            const body = {
+                source: { type: 'win', path: winPath() },
+                dest: { type: 'wsl', path: wslPath() },
+                items
+            };
+
+            const res = await fetch('http://localhost:3000/api/fs/mount', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            
+            if (!res.ok) throw new Error('Mount failed');
+            
+            await fetchFiles();
+            alert('Mount completed successfully - changes will sync bidirectionally');
+        } catch (err) {
+            console.error(err);
+            alert('Mount operation failed');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleDelete = async () => {
         // Determine which items to delete based on what is selected
         // We can only delete from one side at a time to avoid confusion, or both?
@@ -283,7 +316,24 @@ const FolderManager: Component = () => {
                         disabled={selectedWin().size === 0 || loading()}
                         style={{ padding: '12px', background: 'var(--bg-panel)', border: '1px solid var(--border-std)', cursor: 'pointer', "text-align": 'center' }}
                     >
-                        <div style={{ "font-size": '12px', "margin-bottom": '4px' }}>Win &gt; WSL</div>
+                        <div style={{ "font-size": '12px', "margin-bottom": '4px' }}>Win &gt; WSL (Copy)</div>
+                        <ArrowLeft size={20} />
+                    </button>
+                    
+                    <button 
+                        onClick={handleMount}
+                        disabled={selectedWin().size === 0 || loading()}
+                        style={{ 
+                            padding: '12px', 
+                            background: 'var(--accent-primary)', 
+                            border: '1px solid var(--accent-primary)', 
+                            color: 'var(--bg-app)',
+                            cursor: 'pointer', 
+                            "text-align": 'center',
+                            "font-weight": 'bold'
+                        }}
+                    >
+                        <div style={{ "font-size": '12px', "margin-bottom": '4px' }}>Win &gt; WSL (Mount)</div>
                         <ArrowLeft size={20} />
                     </button>
                     

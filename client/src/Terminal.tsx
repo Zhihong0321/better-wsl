@@ -8,6 +8,8 @@ import StatusBar from './components/StatusBar';
 interface TerminalProps {
     sessionId: string;
     ctrlCBehavior?: 'copy' | 'cancel';
+    newlineKey?: 'shift+enter' | 'ctrl+enter' | 'alt+enter' | 'none';
+    cancelKey?: 'ctrl+end' | 'ctrl+break' | 'ctrl+d' | 'esc' | 'none';
     onActivity?: (active: boolean) => void;
 }
 
@@ -78,37 +80,66 @@ export default function TerminalComponent(props: TerminalProps) {
             // 1. Check for Images first
             if (e.clipboardData?.files && e.clipboardData.files.length > 0) {
                 const file = e.clipboardData.files[0];
-                if (file.type.startsWith('image/')) {
+                if (file && file.type.startsWith('image/')) {
+                    // Validate image size (50MB limit due to server config)
+                    const MAX_SIZE = 45 * 1024 * 1024; // 45MB to account for base64 overhead
+                    if (file.size > MAX_SIZE) {
+                        term.write('\x1b[31m[Image too large: Max 45MB]\x1b[0m\r\n');
+                        return;
+                    }
+
                     term.write('\x1b[33m[Uploading image...]\x1b[0m');
 
                     try {
-                        const reader = new FileReader();
-                        reader.onload = async (evt) => {
-                            const base64 = evt.target?.result;
-                            if (typeof base64 !== 'string') return;
+                        const base64 = await new Promise<string>((resolve, reject) => {
+                            const reader = new FileReader();
+                            
+                            reader.onload = (evt) => {
+                                const result = evt.target?.result;
+                                if (typeof result === 'string') {
+                                    resolve(result);
+                                } else {
+                                    reject(new Error('Failed to read image as base64'));
+                                }
+                            };
+                            
+                            reader.onerror = () => {
+                                reject(new Error('FileReader error: ' + (reader.error?.message || 'Unknown error')));
+                            };
+                            
+                            reader.readAsDataURL(file);
+                        });
 
-                            const res = await fetch('http://localhost:3000/api/upload', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    image: base64,
-                                    filename: file.name
-                                })
-                            });
-                            const data = await res.json();
+                        const res = await fetch('http://localhost:3000/api/upload', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                image: base64,
+                                filename: file.name,
+                                sessionId: props.sessionId
+                            })
+                        });
 
-                            // Clear "Uploading..." line
-                            term.write('\r\x1b[K');
+                        // Check response status
+                        if (!res.ok) {
+                            const errorText = await res.text();
+                            throw new Error(`Upload failed: ${res.status} ${res.statusText} - ${errorText}`);
+                        }
 
-                            if (data.path) {
-                                term.paste(data.path);
-                            } else {
-                                term.write('\x1b[31m[Upload Failed: No path returned]\x1b[0m\r\n');
-                            }
-                        };
-                        reader.readAsDataURL(file);
+                        const data = await res.json();
+
+                        // Clear "Uploading..." line
+                        term.write('\r\x1b[K');
+
+                        // Insert base64 image data directly for AI CLIs
+                        term.paste(base64);
                     } catch (err) {
-                        term.write('\r\x1b[K\x1b[31m[Upload Failed]\x1b[0m\r\n');
+                        // Clear "Uploading..." line
+                        term.write('\r\x1b[K');
+                        
+                        const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+                        term.write(`\x1b[31m[Upload Failed: ${errorMsg}]\x1b[0m\r\n`);
+                        console.error('Image paste error:', err);
                     }
                     return;
                 }
@@ -130,6 +161,8 @@ export default function TerminalComponent(props: TerminalProps) {
 
         term.attachCustomKeyEventHandler((e) => {
             if (e.type !== 'keydown') return true;
+            
+            // Handle Ctrl+C behavior
             if (e.ctrlKey && e.key.toLowerCase() === 'c') {
                 const mode = props.ctrlCBehavior || 'copy';
                 if (mode === 'copy') {
@@ -139,6 +172,54 @@ export default function TerminalComponent(props: TerminalProps) {
                 }
                 return true;
             }
+            
+            // Handle configurable Cancel key (sends Ctrl+C / SIGINT)
+            const cancelMapping = props.cancelKey || 'ctrl+end';
+            if (cancelMapping !== 'none' && props.ctrlCBehavior === 'copy') {
+                let shouldCancel = false;
+                
+                if (cancelMapping === 'ctrl+end' && e.ctrlKey && e.key === 'End') {
+                    shouldCancel = true;
+                } else if (cancelMapping === 'ctrl+break' && e.ctrlKey && e.key === 'Pause') {
+                    shouldCancel = true;
+                } else if (cancelMapping === 'ctrl+d' && e.ctrlKey && e.key.toLowerCase() === 'd') {
+                    shouldCancel = true;
+                } else if (cancelMapping === 'esc' && e.key === 'Escape') {
+                    shouldCancel = true;
+                }
+                
+                if (shouldCancel) {
+                    e.preventDefault();
+                    // Send Ctrl+C (\x03) to interrupt the process
+                    socket?.emit('input', '\x03');
+                    return false;
+                }
+            }
+            
+            // Map configured key combo to Alt+Enter (for AI CLI newlines)
+            const mapping = props.newlineKey || 'shift+enter';
+            if (mapping !== 'none') {
+                let shouldMap = false;
+                
+                if (mapping === 'shift+enter' && e.shiftKey && e.key === 'Enter' && !e.ctrlKey && !e.altKey) {
+                    shouldMap = true;
+                } else if (mapping === 'ctrl+enter' && e.ctrlKey && e.key === 'Enter' && !e.shiftKey && !e.altKey) {
+                    shouldMap = true;
+                } else if (mapping === 'alt+enter' && e.altKey && e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
+                    shouldMap = true;
+                }
+                
+                if (shouldMap) {
+                    // Prevent default Enter behavior
+                    e.preventDefault();
+                    // Send Alt+Enter escape sequence directly (ESC + Enter = \x1b\r)
+                    // This is what terminals send when Alt+Enter is pressed
+                    const escapeSeq = '\x1b\r';
+                    socket?.emit('input', escapeSeq);
+                    return false;
+                }
+            }
+            
             return true;
         });
 

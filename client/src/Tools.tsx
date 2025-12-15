@@ -56,10 +56,42 @@ type TabType = 'ESSENTIAL' | 'TOOLS' | 'CODING_CLI';
 // Essential system tools and runtimes
 const ESSENTIAL_TOOLS: Tool[] = [
     {
+        id: 'sudo',
+        name: 'Sudo',
+        description: 'Execute commands with superuser privileges. Required for installing packages.',
+        command: 'echo "sudo is a core system utility and should be pre-installed in WSL"\r',
+        versionCommand: 'sudo --version\r',
+        checkCommand: 'sudo'
+    },
+    {
+        id: 'dnf',
+        name: 'DNF Package Manager (Fedora)',
+        description: 'Dandified YUM package manager for Fedora/RHEL. Primary package manager.',
+        command: 'echo "dnf is pre-installed on Fedora WSL"\r',
+        versionCommand: 'dnf --version\r',
+        checkCommand: 'dnf'
+    },
+    {
+        id: 'apt',
+        name: 'APT Package Manager (Ubuntu)',
+        description: 'Advanced Package Tool for Ubuntu/Debian. Primary package manager.',
+        command: 'echo "apt is pre-installed on Ubuntu WSL"\r',
+        versionCommand: 'apt --version\r',
+        checkCommand: 'apt'
+    },
+    {
+        id: 'curl',
+        name: 'cURL',
+        description: 'Command-line tool for transferring data. Essential for downloading files and APIs.',
+        command: 'if command -v dnf &> /dev/null; then sudo dnf install -y curl; else sudo apt update && sudo apt install -y curl; fi\r',
+        versionCommand: 'curl --version\r',
+        checkCommand: 'curl'
+    },
+    {
         id: 'wslview',
         name: 'WSL Browser Bridge',
         description: 'Open URLs in Windows browser from WSL (wslu/wslview).',
-        command: 'sudo apt update && sudo apt install -y wslu\r',
+        command: 'if command -v dnf &> /dev/null; then sudo dnf install -y git make && cd /tmp && rm -rf wslu && git clone https://github.com/wslutilities/wslu.git && cd wslu && sudo make install; else sudo apt update && sudo apt install -y wslu; fi\r',
         versionCommand: 'wslview --version\r',
         checkCommand: 'wslview'
     },
@@ -67,7 +99,7 @@ const ESSENTIAL_TOOLS: Tool[] = [
         id: 'xdg-utils',
         name: 'XDG Utils',
         description: 'Provides xdg-open for generic URL opening in WSL.',
-        command: 'sudo apt update && sudo apt install -y xdg-utils\r',
+        command: 'if command -v dnf &> /dev/null; then sudo dnf install -y xdg-utils; else sudo apt update && sudo apt install -y xdg-utils; fi\r',
         versionCommand: 'xdg-open --version\r',
         checkCommand: 'xdg-open'
     },
@@ -83,7 +115,7 @@ const ESSENTIAL_TOOLS: Tool[] = [
         id: 'postgresql',
         name: 'PostgreSQL',
         description: 'Native PostgreSQL database for development. Instant startup, persistent data.',
-        command: 'sudo apt update && sudo apt install -y postgresql postgresql-contrib\r',
+        command: 'if command -v dnf &> /dev/null; then sudo dnf install -y postgresql postgresql-server; else sudo apt update && sudo apt install -y postgresql postgresql-contrib; fi\r',
         versionCommand: 'psql --version\r',
         checkCommand: 'psql'
     }

@@ -2,8 +2,10 @@ import { createSignal, onMount, Show, Switch, Match, ErrorBoundary } from 'solid
 import TerminalComponent from './Terminal';
 import Sidebar from './Sidebar';
 import ToolsPanel from './Tools';
+import ToolsNew from './ToolsNew';
 import WelcomeScreen from './WelcomeScreen';
 import SettingsPage from './Settings';
+import SetupPage from './Setup';
 import ErrorScreen from './ErrorScreen';
 import FileBrowser from './FileBrowser';
 import AutoPilot from './AutoPilot';
@@ -39,6 +41,18 @@ function App() {
     return v === 'cancel' ? 'cancel' : 'copy';
   })();
   const [ctrlCBehavior, setCtrlCBehavior] = createSignal<'copy' | 'cancel'>(initialCtrlC);
+  
+  const initialNewlineKey = ((): 'shift+enter' | 'ctrl+enter' | 'alt+enter' | 'none' => {
+    const v = localStorage.getItem('newlineKey');
+    return (v as any) || 'shift+enter';
+  })();
+  const [newlineKey, setNewlineKey] = createSignal<'shift+enter' | 'ctrl+enter' | 'alt+enter' | 'none'>(initialNewlineKey);
+  
+  const initialCancelKey = ((): 'ctrl+end' | 'ctrl+break' | 'ctrl+d' | 'esc' | 'none' => {
+    const v = localStorage.getItem('cancelKey');
+    return (v as any) || 'ctrl+end';
+  })();
+  const [cancelKey, setCancelKey] = createSignal<'ctrl+end' | 'ctrl+break' | 'ctrl+d' | 'esc' | 'none'>(initialCancelKey);
   const [currentProject, setCurrentProject] = createSignal<string | null>(null);
   const [gitInfo, setGitInfo] = createSignal<GitInfo | null>(null);
   const [sessionStates, setSessionStates] = createSignal<Record<string, 'waiting' | 'processing'>>({});
@@ -50,6 +64,8 @@ function App() {
   const [systemReady, setSystemReady] = createSignal(false);
   const [bridgeReady, setBridgeReady] = createSignal(true);
   const [backendAlive, setBackendAlive] = createSignal(true);
+  const [needsSetup, setNeedsSetup] = createSignal(false);
+  const [setupComplete, setSetupComplete] = createSignal(false);
 
   const fetchGitInfo = async (projectName: string) => {
     try {
@@ -75,6 +91,20 @@ function App() {
       const bb = data.browserBridge;
       const ok = bb && (bb.wslviewInstalled || bb.xdgOpenInstalled);
       setBridgeReady(!!ok);
+      
+      // Always check if setup is needed (even if WSL not installed yet)
+      try {
+        const sysInfoRes = await fetch('http://localhost:3000/api/tools/system-info', { method: 'POST' });
+        const sysInfo = await sysInfoRes.json();
+        
+        // Show setup if WSL not installed OR essential tools missing
+        const setupNeeded = !data.wslInstalled || !sysInfo.hasSudo || !sysInfo.hasCurl || !sysInfo.hasNode;
+        setNeedsSetup(setupNeeded);
+      } catch (err) {
+        // If can't check system info, assume setup is needed
+        console.warn('Could not check system info, showing setup:', err);
+        setNeedsSetup(true);
+      }
     } catch (err) {
       console.error("System check failed", err);
       setBackendAlive(false);
@@ -97,6 +127,28 @@ function App() {
       }
     } catch (err) {
       console.error("Failed to fetch sessions", err);
+    }
+  };
+
+  const detectExistingSessions = async () => {
+    try {
+      const res = await fetch('http://localhost:3000/api/sessions');
+      const data = await res.json();
+      
+      if (data.length > 0) {
+        // Found existing sessions, use the first one's project
+        const firstSession = data[0];
+        setCurrentProject(firstSession.project);
+        setSessions(data.filter((s: Session) => s.project === firstSession.project));
+        setActiveSessionId(firstSession.id);
+        
+        // Fetch git info for the project
+        if (firstSession.project) {
+          await fetchGitInfo(firstSession.project);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to detect existing sessions", err);
     }
   };
 
@@ -194,9 +246,45 @@ function App() {
     }
   };
 
+  const handleCloseSession = async (sessionId: string) => {
+    console.log('[App] Closing session:', sessionId);
+    try {
+      const res = await fetch(`http://localhost:3000/api/sessions/${sessionId}`, {
+        method: 'DELETE'
+      });
+      
+      console.log('[App] Delete response status:', res.status);
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to close session');
+      }
+      
+      const data = await res.json();
+      console.log('[App] Session closed:', data);
+      
+      // If we closed the active session, select another one
+      if (activeSessionId() === sessionId) {
+        const remaining = sessions().filter(s => s.id !== sessionId);
+        setActiveSessionId(remaining.length > 0 ? remaining[0].id : null);
+      }
+      
+      await fetchSessions();
+    } catch (err: any) {
+      console.error('[App] Failed to close session:', err);
+      alert(`Failed to close session: ${err.message}`);
+    }
+  };
+
   // Poll for sessions occasionally
   onMount(() => {
     checkSystem();
+    
+    // Detect existing sessions on mount
+    setTimeout(() => {
+      detectExistingSessions();
+    }, 500);
+    
     setInterval(() => {
       fetchSessions();
       if (currentProject()) {
@@ -248,11 +336,19 @@ function App() {
               </div>
             }
           >
+            {/* Show setup first if needed, even before checking WSL */}
+            <Show when={!needsSetup() || setupComplete()} fallback={
+              <SetupPage onComplete={() => {
+                setSetupComplete(true);
+                setNeedsSetup(false);
+                checkSystem(); // Re-check after setup
+              }} />
+            }>
             <Show when={systemReady()} fallback={<ErrorScreen />}>
-              <Show
-                when={currentProject()}
-                fallback={<WelcomeScreen onSelectProject={handleProjectSelect} />}
-              >
+                <Show
+                  when={currentProject()}
+                  fallback={<WelcomeScreen onSelectProject={handleProjectSelect} />}
+                >
               <Sidebar
                 sessions={sessions()}
                 activeId={activeSessionId()}
@@ -265,10 +361,13 @@ function App() {
                 sessionStates={sessionStates()}
                 gitInfo={gitInfo()}
                 ctrlCBehavior={ctrlCBehavior()}
+                newlineKey={newlineKey()}
+                cancelKey={cancelKey()}
                 onDuplicate={() => currentProject() && handleSessionCreate(currentProject()!)}
                 onOpenExplorer={(id) => setExplorerSessionId(id)}
                 onCheckout={handleCheckout}
-                onCommit={() => currentProject() && fetchGitInfo(currentProject()!)}
+                onCloseSession={handleCloseSession}
+                onCommit={() => fetchGitInfo(currentProject()!)}
               />
 
               <div class="fade-in" style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
@@ -310,7 +409,9 @@ function App() {
                     >
                     {(id) => <TerminalComponent 
                         sessionId={id()} 
-                        ctrlCBehavior={ctrlCBehavior()} 
+                        ctrlCBehavior={ctrlCBehavior()}
+                        newlineKey={newlineKey()}
+                        cancelKey={cancelKey()}
                         onActivity={(active) => {
                             setSessionStates(prev => ({ ...prev, [id()]: active ? 'processing' : 'waiting' }));
                         }}
@@ -318,15 +419,22 @@ function App() {
                   </Show>
                 </Match>
                 <Match when={currentView() === 'tools'}>
-                  <ToolsPanel 
-                    onInstall={handleInstallTool} 
-                    onShutdown={() => setBackendAlive(false)}
+                  <ToolsNew 
+                    onExecute={handleInstallTool}
                   />
                 </Match>
                 <Match when={currentView() === 'settings'}>
                   <SettingsPage
                     value={ctrlCBehavior()}
                     onChange={(v) => { setCtrlCBehavior(v); localStorage.setItem('ctrlCBehavior', v); }}
+                    newlineKey={newlineKey()}
+                    onNewlineKeyChange={(v) => { setNewlineKey(v); localStorage.setItem('newlineKey', v); }}
+                    cancelKey={cancelKey()}
+                    onCancelKeyChange={(v) => { setCancelKey(v); localStorage.setItem('cancelKey', v); }}
+                    onOpenSetup={() => {
+                      setNeedsSetup(true);
+                      setSetupComplete(false);
+                    }}
                   />
                 </Match>
                 <Match when={currentView() === 'autopilot'}>
@@ -383,6 +491,7 @@ function App() {
                       onClose={() => setExplorerSessionId(null)}
                   />
               </Show>
+            </Show>
             </Show>
           </Show>
         </Show>

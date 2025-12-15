@@ -66,8 +66,13 @@ const checkWslStatus = () => {
 // API: Upload file and return WSL path
 app.post('/api/upload', async (req, res) => {
     try {
-        const { image, filename } = req.body;
+        const { image, filename, sessionId } = req.body;
         if (!image) return res.status(400).json({ error: 'No image data' });
+
+        // Validate base64 format
+        if (typeof image !== 'string' || !image.startsWith('data:image/')) {
+            return res.status(400).json({ error: 'Invalid image format' });
+        }
 
         const uploadDir = path.join(__dirname, 'uploads');
         if (!fs.existsSync(uploadDir)) {
@@ -76,7 +81,24 @@ app.post('/api/upload', async (req, res) => {
 
         // Strip base64 header
         const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
-        const buffer = Buffer.from(base64Data, 'base64');
+
+        // Validate base64 data
+        if (!base64Data || base64Data.length === 0) {
+            return res.status(400).json({ error: 'Empty image data' });
+        }
+
+        let buffer;
+        try {
+            buffer = Buffer.from(base64Data, 'base64');
+        } catch (err) {
+            return res.status(400).json({ error: 'Invalid base64 encoding' });
+        }
+
+        // Validate buffer size (max 50MB)
+        const MAX_SIZE = 50 * 1024 * 1024;
+        if (buffer.length > MAX_SIZE) {
+            return res.status(413).json({ error: 'Image too large (max 50MB)' });
+        }
 
         // Sanitize filename
         const safeName = (filename || `image-${Date.now()}.png`).replace(/[^a-zA-Z0-9.-]/g, '_');
@@ -84,6 +106,65 @@ app.post('/api/upload', async (req, res) => {
 
         fs.writeFileSync(filePath, buffer);
 
+        // NEW STRATEGY: If sessionId provided, copy to session's CURRENT WORKSPACE DIRECTORY
+        if (sessionId && sessions.has(sessionId)) {
+            try {
+                const session = sessions.get(sessionId);
+                const project = session.project;
+
+                // Determine target directory inside WSL
+                // If the session is associated with a project, put it there.
+                // Otherwise default to workspace root.
+                const targetDir = project ? `$HOME/better-cli-workspace/${project}` : `$HOME/better-cli-workspace`;
+                const targetPath = `${targetDir}/${safeName}`;
+
+                // Ensure directory exists
+                await execWsl(`mkdir -p "${targetDir}"`);
+
+                // Copy file to workspace using cat (works even if /mnt fails)
+                const root = path.parse(filePath).root;
+                const driveLetter = root.replace(':\\', '').toLowerCase();
+                const pathWithoutDrive = filePath.substring(root.length).replace(/\\/g, '/');
+                const mntPath = `/mnt/${driveLetter}/${pathWithoutDrive}`;
+
+                // Try to copy from /mnt path to workspace
+                let finalPath = '';
+                try {
+                    await execWsl(`cp "${mntPath}" "${targetPath}"`);
+                    console.log(`[Upload] Copied to workspace: ${targetPath}`);
+
+                    // Resolve absolute path
+                    finalPath = await execWsl(`readlink -f "${targetPath}"`);
+                } catch (copyErr) {
+                    console.log(`[Upload] Copy from /mnt failed, using cat method`);
+                    // Fallback: pipe the buffer directly
+                    const { spawn } = require('child_process');
+                    const child = spawn('wsl.exe', ['--exec', 'bash', '-c', `cat > "${targetPath}"`]);
+                    child.stdin.write(buffer);
+                    child.stdin.end();
+
+                    await new Promise((resolve, reject) => {
+                        child.on('close', (code) => {
+                            if (code === 0) resolve();
+                            else reject(new Error(`WSL write failed with code ${code}`));
+                        });
+                        child.on('error', reject);
+                    });
+
+                    console.log(`[Upload] Uploaded to workspace via stream: ${targetPath}`);
+                    // Resolve absolute path
+                    finalPath = await execWsl(`readlink -f "${targetPath}"`);
+                }
+
+                if (finalPath) {
+                    return res.json({ path: finalPath.trim() });
+                }
+            } catch (err) {
+                console.warn(`[Upload] Session-specific upload failed, falling back to default:`, err);
+            }
+        }
+
+        // FALLBACK: Original behavior for backward compatibility
         // Strategy 1: Try /mnt path
         const root = path.parse(filePath).root; // "E:\"
         const drive = root.replace(':\\', '').toLowerCase(); // "e"
@@ -134,11 +215,19 @@ app.post('/api/upload', async (req, res) => {
 
         // Resolve absolute path in WSL (expand ~) to be sure
         const absolutePath = await execWsl(`echo "${wslTarget}"`);
-        res.json({ path: absolutePath });
+        const trimmedPath = absolutePath.trim();
+
+        // Validate path was created
+        if (!trimmedPath) {
+            throw new Error('Failed to resolve WSL path');
+        }
+
+        res.json({ path: trimmedPath });
 
     } catch (err) {
-        console.error('Upload failed:', err);
-        res.status(500).json({ error: err.toString() });
+        console.error('[Upload] Error:', err);
+        const errorMessage = err instanceof Error ? err.message : 'Unknown upload error';
+        res.status(500).json({ error: errorMessage });
     }
 });
 
@@ -501,9 +590,9 @@ app.post('/api/tools/uninstall', async (req, res) => {
             // PostgreSQL removal
             uninstallCmd = `sudo apt remove -y postgresql postgresql-contrib`;
         } else if (toolId === 'wslview') {
-            uninstallCmd = `sudo apt remove -y wslu`;
+            uninstallCmd = `if command -v dnf &> /dev/null; then cd /usr/local/bin && sudo rm -f wslview wslfetch wslsys wslact wslusc wslupath wslvar && cd /usr/local/share/man/man1 && sudo rm -f wsl*.1; else sudo apt remove -y wslu; fi`;
         } else if (toolId === 'xdg-utils') {
-            uninstallCmd = `sudo apt remove -y xdg-utils`;
+            uninstallCmd = `if command -v dnf &> /dev/null; then sudo dnf remove -y xdg-utils; else sudo apt remove -y xdg-utils; fi`;
         } else {
             // System packages
             uninstallCmd = `sudo apt remove -y ${command}`;
@@ -599,6 +688,215 @@ app.post('/api/tools/auth-status', async (req, res) => {
         }
 
         res.json({ authenticated, account, error });
+    } catch (err) {
+        res.status(500).json({ error: err.toString() });
+    }
+});
+
+// API: Broad tool detection with multiple fallbacks
+app.post('/api/tools/detect-broad', async (req, res) => {
+    const { toolId, detectCommands } = req.body;
+    if (!toolId || !detectCommands) return res.status(400).json({ error: 'Missing parameters' });
+
+    try {
+        let detected = false;
+        let path = null;
+        let version = null;
+
+        // Try each detection command until one succeeds
+        for (const cmd of detectCommands) {
+            try {
+                // Check if command exists
+                const which = await execWsl(`command -v ${cmd} 2>/dev/null || which ${cmd} 2>/dev/null || echo "NOT_FOUND"`);
+                
+                if (which && !which.includes('NOT_FOUND')) {
+                    detected = true;
+                    path = which.trim();
+                    
+                    // Try to get version
+                    try {
+                        const ver = await execWsl(`${cmd} --version 2>&1 | head -1`);
+                        version = ver.trim();
+                    } catch (e) {
+                        version = 'unknown';
+                    }
+                    break; // Found it, stop searching
+                }
+            } catch (e) {
+                // Continue to next detection method
+                continue;
+            }
+        }
+
+        res.json({ id: toolId, detected, path, version });
+    } catch (err) {
+        res.status(500).json({ error: err.toString() });
+    }
+});
+
+// API: Get system information (distro, package manager, etc)
+app.post('/api/tools/system-info', async (req, res) => {
+    try {
+        const script = `
+            # Detect distribution
+            if [ -f /etc/os-release ]; then
+                . /etc/os-release
+                echo "DISTRO=$PRETTY_NAME"
+            else
+                echo "DISTRO=Unknown Linux"
+            fi
+            
+            # Detect package manager
+            if command -v dnf &> /dev/null; then
+                echo "PKG_MGR=dnf"
+            elif command -v apt &> /dev/null; then
+                echo "PKG_MGR=apt"
+            else
+                echo "PKG_MGR=unknown"
+            fi
+            
+            # Check common tools
+            command -v sudo &> /dev/null && echo "HAS_SUDO=true" || echo "HAS_SUDO=false"
+            command -v curl &> /dev/null && echo "HAS_CURL=true" || echo "HAS_CURL=false"
+            command -v node &> /dev/null && echo "HAS_NODE=true" || echo "HAS_NODE=false"
+        `;
+        
+        const output = await execWsl(script);
+        const lines = output.split('\n');
+        const getVal = (key) => {
+            const line = lines.find(l => l.startsWith(key + '='));
+            return line ? line.substring(key.length + 1).trim() : '';
+        };
+
+        res.json({
+            distro: getVal('DISTRO'),
+            packageManager: getVal('PKG_MGR'),
+            hasSudo: getVal('HAS_SUDO') === 'true',
+            hasCurl: getVal('HAS_CURL') === 'true',
+            hasNode: getVal('HAS_NODE') === 'true'
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.toString() });
+    }
+});
+
+// API: Get WSL distro list and detailed info
+app.post('/api/wsl/distros', async (req, res) => {
+    try {
+        // Get list of all distros
+        const listOutput = await new Promise((resolve, reject) => {
+            exec('wsl.exe --list --verbose', { encoding: 'utf16le' }, (error, stdout, stderr) => {
+                if (error) reject(error);
+                else resolve(stdout);
+            });
+        });
+
+        const lines = listOutput.split('\n').map(l => l.trim()).filter(Boolean);
+        const distros = [];
+        
+        // Skip header line
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i];
+            // Parse: NAME STATE VERSION
+            // Example: * Ubuntu Running 2
+            const match = line.match(/(\*)\s*([\w-]+)\s+(\w+)\s+(\d+)/);
+            if (match) {
+                const isDefault = match[1] === '*';
+                const name = match[2].trim();
+                const state = match[3].trim();
+                const version = match[4].trim();
+                
+                distros.push({
+                    name,
+                    state,
+                    version,
+                    isDefault
+                });
+            }
+        }
+
+        res.json({ distros });
+    } catch (err) {
+        res.status(500).json({ error: err.toString() });
+    }
+});
+
+// API: Set default WSL distro
+app.post('/api/wsl/set-default', async (req, res) => {
+    const { distro } = req.body;
+    if (!distro) return res.status(400).json({ error: 'Distro name required' });
+
+    try {
+        await new Promise((resolve, reject) => {
+            exec(`wsl.exe --set-default ${distro}`, (error, stdout, stderr) => {
+                if (error) reject(error);
+                else resolve(stdout);
+            });
+        });
+        res.json({ success: true, message: `Default distro set to ${distro}` });
+    } catch (err) {
+        res.status(500).json({ error: err.toString() });
+    }
+});
+
+// API: Terminate a WSL distro
+app.post('/api/wsl/terminate', async (req, res) => {
+    const { distro } = req.body;
+    if (!distro) return res.status(400).json({ error: 'Distro name required' });
+
+    try {
+        await new Promise((resolve, reject) => {
+            exec(`wsl.exe --terminate ${distro}`, (error, stdout, stderr) => {
+                if (error) reject(error);
+                else resolve(stdout);
+            });
+        });
+        res.json({ success: true, message: `${distro} terminated` });
+    } catch (err) {
+        res.status(500).json({ error: err.toString() });
+    }
+});
+
+// API: Shutdown all WSL distros
+app.post('/api/wsl/shutdown-all', async (req, res) => {
+    try {
+        await new Promise((resolve, reject) => {
+            exec('wsl.exe --shutdown', (error, stdout, stderr) => {
+                if (error) reject(error);
+                else resolve(stdout);
+            });
+        });
+        res.json({ success: true, message: 'All WSL distros shutdown' });
+    } catch (err) {
+        res.status(500).json({ error: err.toString() });
+    }
+});
+
+// API: Update WSL
+app.post('/api/wsl/update', async (req, res) => {
+    try {
+        await new Promise((resolve, reject) => {
+            exec('wsl.exe --update', (error, stdout, stderr) => {
+                if (error) reject(error);
+                else resolve(stdout);
+            });
+        });
+        res.json({ success: true, message: 'WSL update initiated' });
+    } catch (err) {
+        res.status(500).json({ error: err.toString() });
+    }
+});
+
+// API: Get WSL version info
+app.post('/api/wsl/version', async (req, res) => {
+    try {
+        const version = await new Promise((resolve, reject) => {
+            exec('wsl.exe --version', (error, stdout, stderr) => {
+                if (error) resolve('WSL 1 (version command not available)');
+                else resolve(stdout);
+            });
+        });
+        res.json({ version: version.trim() });
     } catch (err) {
         res.status(500).json({ error: err.toString() });
     }
@@ -723,7 +1021,7 @@ app.get('/api/projects/:name/git-status', async (req, res) => {
         // Get Current Branch
         let branch = await execWsl(`cd "${projectPath}" && git branch --show-current || echo ""`);
         branch = branch.trim();
-        
+
         // If no branch (detached HEAD), get hash
         if (!branch) {
             const hash = await execWsl(`cd "${projectPath}" && git rev-parse --short HEAD || echo ""`);
@@ -733,14 +1031,14 @@ app.get('/api/projects/:name/git-status', async (req, res) => {
         // Get Recent Commits (Last 10)
         // Format: Hash | Date | Subject
         const logOutput = await execWsl(`cd "${projectPath}" && git log -10 --format="%h|%cI|%s" || echo ""`);
-        
+
         const commits = [];
         if (logOutput.trim()) {
             const lines = logOutput.trim().split('\n');
             for (const line of lines) {
                 const firstPipe = line.indexOf('|');
                 const secondPipe = line.indexOf('|', firstPipe + 1);
-                
+
                 if (firstPipe !== -1 && secondPipe !== -1) {
                     const hash = line.substring(0, firstPipe);
                     const date = line.substring(firstPipe + 1, secondPipe);
@@ -783,14 +1081,14 @@ app.post('/api/projects/:name/git-checkout', async (req, res) => {
         // The user request "pull previous commit to local folder" implies resetting the folder state.
         // But reset --hard is destructive to history if we are on a branch.
         // checkout <hash> is safer but puts us in detached HEAD.
-        
+
         // Let's assume they want to "view/work" on that version.
         // checkout is safest. If they want to "reset" the branch, they can do that later.
         // Wait, "pull previous commit to local folder" might mean "make my files look like this commit".
         // If we just checkout, the branch pointer doesn't move, but HEAD does.
-        
+
         await execWsl(`cd "${projectPath}" && git checkout ${hash}`);
-        
+
         res.json({ success: true, message: `Checked out ${hash}` });
     } catch (err) {
         res.status(500).json({ error: err.toString() });
@@ -818,27 +1116,27 @@ app.post('/api/projects/:name/git-commit', async (req, res) => {
 // System File Browser API
 app.get('/api/system/drives', async (req, res) => {
     try {
-        const wslInstalled = await checkWslStatus();
-        const drives = await new Promise((resolve) => {
-            exec('wmic logicaldisk get name', (error, stdout) => {
-                if (error) {
-                    resolve([]);
-                    return;
-                }
-                const d = stdout.split('\r\r\n')
-                    .filter(value => /[A-Za-z]:/.test(value))
-                    .map(value => value.trim());
-                resolve(d);
-            });
-        });
+        const os = require('os');
+        const drives = [];
 
-        if (wslInstalled) {
-            drives.push('~'); // WSL Home
-            drives.push('/'); // WSL Root
+        // On Windows, check common drive letters
+        if (process.platform === 'win32') {
+            for (let i = 65; i <= 90; i++) { // A-Z
+                const drive = String.fromCharCode(i) + ':';
+                try {
+                    // Try to read the drive - if it exists, it won't throw
+                    fs.accessSync(drive + '\\', fs.constants.F_OK);
+                    drives.push(drive);
+                } catch (e) {
+                    // Drive doesn't exist, skip
+                }
+            }
         }
 
+        console.log('[Drives] Windows drives found:', drives);
         res.json(drives);
     } catch (err) {
+        console.error('[Drives] Error:', err);
         res.status(500).json({ error: err.toString() });
     }
 });
@@ -898,19 +1196,19 @@ app.post('/api/fs/wsl/list', async (req, res) => {
             const duCmd = `cd "${safePath}" && du -k --max-depth=1 2>/dev/null || true`;
             console.log('[WSL List] Calculating sizes with:', duCmd);
             const duOutput = await execWsl(duCmd);
-            
+
             duOutput.split('\n').forEach(line => {
                 const parts = line.trim().split(/\s+/);
                 if (parts.length >= 2) {
                     const sizeKb = parseInt(parts[0], 10);
                     let name = parts.slice(1).join(' ');
-                    
+
                     // Remove ./ prefix if present
                     if (name.startsWith('./')) name = name.substring(2);
-                    
+
                     // Skip current directory (.)
                     if (name === '.') return;
-                    
+
                     dirSizes[name] = sizeKb * 1024; // Convert to bytes
                 }
             });
@@ -934,7 +1232,7 @@ app.post('/api/fs/wsl/list', async (req, res) => {
 
             const isDir = parts[0].startsWith('d');
             const name = parts.slice(7).join(' '); // Rejoin remaining parts as name
-            
+
             // Clean name (remove trailing slash for matching)
             const cleanName = name.replace(/\/$/, '');
 
@@ -1075,6 +1373,44 @@ app.post('/api/fs/copy', async (req, res) => {
     }
 });
 
+// API: Mount items (create symlinks from Windows to WSL)
+app.post('/api/fs/mount', async (req, res) => {
+    const { source, dest, items } = req.body;
+
+    if (!source || !dest || !items || !items.length) {
+        return res.status(400).json({ error: 'Invalid parameters' });
+    }
+
+    // Only support Windows -> WSL mounting
+    if (source.type !== 'win' || dest.type !== 'wsl') {
+        return res.status(400).json({ error: 'Mount only supports Windows -> WSL direction' });
+    }
+
+    try {
+        for (const item of items) {
+            const srcPath = path.join(source.path, item);
+            const destPath = `${dest.path}/${item}`;
+            const mntSrc = toMntPath(srcPath);
+
+            // Check if destination already exists
+            const checkExists = await execWsl(`test -e "${destPath}" && echo "EXISTS" || echo "NOT_EXISTS"`);
+            
+            if (checkExists.trim() === 'EXISTS') {
+                // Remove existing file/folder/symlink
+                await execWsl(`rm -rf "${destPath}"`);
+            }
+
+            // Create symlink
+            await execWsl(`ln -s "${mntSrc}" "${destPath}"`);
+            console.log(`[Mount] Created symlink: ${destPath} -> ${mntSrc}`);
+        }
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Mount failed:', err);
+        res.status(500).json({ error: err.toString() });
+    }
+});
+
 // API: Delete items
 app.post('/api/fs/delete', async (req, res) => {
     const { type, path: basePath, items } = req.body;
@@ -1091,7 +1427,7 @@ app.post('/api/fs/delete', async (req, res) => {
                     // We only allow deleting direct children for now for safety
                     // Actually, let's allow paths but be careful
                 }
-                
+
                 // Construct full path
                 // If basePath ends with /, don't add another. If not, add /
                 const separator = basePath.endsWith('/') ? '' : '/';
@@ -1175,6 +1511,7 @@ app.post('/api/system/shutdown', (req, res) => {
 
 app.post('/api/system/dirs', async (req, res) => {
     const targetPath = req.body.path;
+    console.log('[Dirs] Requested path:', targetPath);
     if (!targetPath) return res.status(400).json({ error: 'Path required' });
 
     try {
@@ -1188,22 +1525,27 @@ app.post('/api/system/dirs', async (req, res) => {
                 wslPath = wslPath.replace('~', '$HOME');
             }
 
+            console.log('[Dirs] WSL path:', wslPath);
+
             // Use eval to expand the path safely in shell before listing
             // Adding -d */ to list only directories and append slash
-            const output = await execWsl(`ls -F -d "${wslPath}"/*/ 2>/dev/null || ls -F -d "${wslPath}"/ 2>/dev/null`);
+            const output = await execWsl(`ls -F -d "${wslPath}"/*/ 2>/dev/null || ls -F -d "${wslPath}"/  2>/dev/null`);
+            console.log('[Dirs] Raw output:', output);
 
             const dirs = output.split('\n')
                 .map(line => line.trim())
                 .filter(line => line.length > 0 && line.endsWith('/'))
                 .map(line => {
-                    // If ls returned full paths, extract just the name
-                    // If ls returned relative, it's just the name
-                    // We want just the directory name for the UI list
-                    const parts = line.split('/');
-                    // parts is [..., 'dirname', ''] due to trailing slash
-                    return parts[parts.length - 2];
-                });
+                    // Remove trailing slash first
+                    const cleanPath = line.slice(0, -1);
+                    // Extract the last component of the path
+                    const parts = cleanPath.split('/');
+                    const folderName = parts[parts.length - 1];
+                    return folderName || parts[parts.length - 2] || cleanPath;
+                })
+                .filter(name => name.length > 0); // Filter out any empty names
 
+            console.log('[Dirs] Parsed dirs:', dirs);
             return res.json(dirs);
         }
 
@@ -1212,8 +1554,10 @@ app.post('/api/system/dirs', async (req, res) => {
         const dirs = items
             .filter(item => item.isDirectory())
             .map(item => item.name);
+        console.log('[Dirs] Windows dirs:', dirs);
         res.json(dirs);
     } catch (err) {
+        console.error('[Dirs] Error:', err.message);
         res.status(500).json({ error: err.message });
     }
 });
@@ -1296,7 +1640,7 @@ app.post('/api/system/files/read', async (req, res) => {
     }
 });
 
-// API: Import folder from Windows
+// API: Import folder from Windows (Direct Mount via Symlink)
 app.post('/api/projects/import', async (req, res) => {
     const { windowsPath } = req.body;
     if (!windowsPath) return res.status(400).json({ error: 'Initial path required' });
@@ -1304,50 +1648,35 @@ app.post('/api/projects/import', async (req, res) => {
     try {
         // Convert E:\Foo\Bar to /mnt/e/Foo/Bar
         const driveLetter = windowsPath.charAt(0).toLowerCase();
-        const restPath = windowsPath.slice(2).replace(/\\/g, '/');
-        const wslPath = `/mnt/${driveLetter}${restPath}`;
+        const restPath = windowsPath.slice(3).replace(/\\/g, '/'); // slice(3) to skip "E:\\"
+        const wslPath = `/mnt/${driveLetter}/${restPath}`;
 
         const folderName = path.basename(windowsPath);
-        // Use $HOME to ensure expansion inside double quotes during spawn
+        // Use $HOME to ensure expansion inside double quotes
         const targetPath = `$HOME/better-cli-workspace/${folderName}`;
 
-        console.log(`[Import] Copying ${wslPath} to ${targetPath}`);
+        console.log(`[Import] Mounting ${wslPath} as ${targetPath} (symlink)`);
 
         await execWsl(`mkdir -p $HOME/better-cli-workspace`);
 
-        // Use spawn for streaming output (cp -rv)
-        const { spawn } = require('child_process');
-        const copyProcess = spawn('wsl.exe', ['--exec', 'bash', '-c', `cp -rv "${wslPath}" "${targetPath}"`]);
+        // Check if target already exists
+        const checkExists = await execWsl(`test -e "${targetPath}" && echo "EXISTS" || echo "NOT_EXISTS"`);
 
-        copyProcess.stdout.on('data', (data) => {
-            const lines = data.toString().split('\n');
-            for (const line of lines) {
-                const trimmed = line.trim();
-                if (trimmed) {
-                    // cp -v output: 'src' -> 'dest'
-                    const match = trimmed.match(/'([^']+)' ->/);
-                    const file = match ? path.basename(match[1]) : trimmed;
-                    // Limit file length to avoid huge payloads
-                    const safeFile = file.length > 50 ? '...' + file.slice(-47) : file;
-                    io.emit('import-progress', { file: safeFile });
-                }
-            }
-        });
+        if (checkExists.trim() === 'EXISTS') {
+            // Remove existing symlink/folder
+            await execWsl(`rm -rf "${targetPath}"`);
+        }
 
-        copyProcess.stderr.on('data', (data) => {
-            console.error(`[Import Error] ${data}`);
-        });
+        // Create symlink instead of copying - this mounts the Windows folder directly
+        await execWsl(`ln -s "${wslPath}" "${targetPath}"`);
 
-        copyProcess.on('close', (code) => {
-            if (code === 0) {
-                res.json({ success: true, name: folderName });
-            } else {
-                // Check if response already sent
-                if (!res.headersSent) {
-                    res.status(500).json({ error: `Import failed with code ${code}` });
-                }
-            }
-        });
+        // Verify the symlink was created correctly
+        const linkCheck = await execWsl(`ls -la "${targetPath}" | head -1`);
+        console.log(`[Import] Successfully mounted ${folderName}`);
+        console.log(`[Import] Symlink verification: ${linkCheck}`);
+        console.log(`[Import] Source: ${wslPath} -> Target: ${targetPath}`);
+        
+        res.json({ success: true, name: folderName });
 
     } catch (err) {
         console.error('Import failed', err);
@@ -1367,28 +1696,15 @@ app.post('/api/sessions', async (req, res) => {
 
     console.log(`[Session] Creating session ${id} (${cols}x${rows}) for project: ${project || 'root'}`);
 
-    // Spawn WSL
+    // Spawn WSL with bash
     const shell = 'wsl.exe';
 
-    // Milestone 5: Force start in Linux Home (~), not Windows Mount
-    let envVars = process.env;
-    try {
-        const wslviewCheck = await execWsl('which wslview 2>/dev/null || echo "NOT_FOUND"');
-        if (wslviewCheck && !wslviewCheck.includes('NOT_FOUND')) {
-            envVars = { ...process.env, BROWSER: 'wslview' };
-        }
-    } catch { }
-
-    // Milestone 5 + Isolation: Force start in Linux Home (~), and use unshare for unique hostname
-    const shortId = id.substring(0, 6);
-    const isolatedCommand = `hostname better-cli-${shortId} && exec bash`;
-
-    // We use unshare -u (UTS namespace) and -r (map-root-user) to allow hostname change without sudo
-    const ptyProcess = pty.spawn(shell, ['--exec', 'unshare', '-u', '-r', 'bash', '-c', isolatedCommand], {
+    // Start bash directly in the project directory
+    const ptyProcess = pty.spawn(shell, ['--', 'bash'], {
         name: 'xterm-256color',
         cols: cols,
         rows: rows,
-        env: envVars
+        env: process.env
     });
 
     const session = {
@@ -1406,16 +1722,6 @@ app.post('/api/sessions', async (req, res) => {
         const targetDir = project ? `$HOME/better-cli-workspace/${project}` : `$HOME/better-cli-workspace`;
         ptyProcess.write(`mkdir -p "${targetDir}" && cd "${targetDir}" && clear\r`);
     }, 500);
-
-    // Export BROWSER=wslview if available
-    setTimeout(async () => {
-        try {
-            const which = await execWsl('which wslview 2>/dev/null || echo "NOT_FOUND"');
-            if (which && !which.includes('NOT_FOUND')) {
-                ptyProcess.write(`export BROWSER=wslview\r`);
-            }
-        } catch { }
-    }, 1000);
 
     // Clean up on exit
     ptyProcess.onExit(({ exitCode, signal }) => {
@@ -1447,6 +1753,26 @@ app.post('/api/sessions/:id/input', (req, res) => {
         session.pty.write(data);
     }
     res.json({ success: true });
+});
+
+// API: Delete/Close a session
+app.delete('/api/sessions/:id', (req, res) => {
+    const session = sessions.get(req.params.id);
+    if (!session) {
+        return res.status(404).json({ error: 'Session not found' });
+    }
+
+    try {
+        // Kill the PTY process
+        session.pty.kill();
+        // Remove from sessions map
+        sessions.delete(req.params.id);
+        console.log(`[Session ${req.params.id}] Closed and removed`);
+        res.json({ success: true, message: 'Session closed' });
+    } catch (err) {
+        console.error(`[Session ${req.params.id}] Failed to close:`, err);
+        res.status(500).json({ error: err.toString() });
+    }
 });
 
 // API: List all sessions
@@ -1565,6 +1891,7 @@ app.get('/api/sessions/:id/network-info', async (req, res) => {
         const connectionLines = connections.split('\n').filter(Boolean);
         const activeConnections = [];
         const uniqueTargets = new Set();
+        const runningTools = []; // FIX: Initialize runningTools array
 
         // Always add some known reliable targets for connectivity check if no active connections
         // This ensures the user sees *something* instead of just "Initializing..." forever
@@ -1785,6 +2112,141 @@ app.post('/api/autopilot/unlink', (req, res) => {
     res.json({ success: true, unlinked: count });
 });
 
+// API: Execute setup step
+app.post('/api/setup/execute-step', async (req, res) => {
+    const { stepId, distro } = req.body;
+    if (!stepId) return res.status(400).json({ error: 'Step ID required' });
+
+    try {
+        let command = '';
+        let output = '';
+
+        switch (stepId) {
+            case 'check-wsl':
+                // Check if WSL is installed
+                command = 'wsl.exe --status';
+                try {
+                    output = await new Promise((resolve, reject) => {
+                        exec(command, (error, stdout, stderr) => {
+                            if (error) {
+                                // WSL not installed, provide instructions
+                                reject(new Error('WSL is not installed. Please install it first:\n\n1. Open PowerShell as Administrator\n2. Run: wsl --install\n3. Restart your computer\n4. Come back to run this setup'));
+                            } else {
+                                resolve('WSL is installed and ready:\n' + stdout);
+                            }
+                        });
+                    });
+                } catch (err) {
+                    throw err;
+                }
+                break;
+
+            case 'wsl-init':
+                // Initialize WSL distro
+                command = `wsl.exe -d ${distro} echo "WSL initialized"`;
+                output = await new Promise((resolve, reject) => {
+                    exec(command, (error, stdout, stderr) => {
+                        if (error) reject(error);
+                        else resolve(stdout || 'WSL distribution initialized successfully');
+                    });
+                });
+                break;
+
+            case 'check-sudo':
+                // Check if sudo is available
+                command = 'sudo --version';
+                output = await execWsl(command);
+                if (!output.includes('Sudo')) {
+                    throw new Error('Sudo not found');
+                }
+                output = 'Sudo verified: ' + output.split('\n')[0];
+                break;
+
+            case 'install-curl':
+                // Install curl
+                command = 'if command -v curl &> /dev/null; then echo "curl already installed: $(curl --version | head -n1)"; else if command -v dnf &> /dev/null; then sudo dnf install -y curl; else sudo apt update && sudo apt install -y curl; fi && echo "curl installed: $(curl --version | head -n1)"; fi';
+                output = await execWsl(command);
+                break;
+
+            case 'install-node':
+                // Install Node.js using fnm
+                command = `set -e;
+HOME_DIR="$(getent passwd $(whoami) | cut -d: -f6)";
+FNM_DIR="$HOME_DIR/.local/share/fnm";
+mkdir -p "$FNM_DIR";
+if ! command -v unzip &> /dev/null; then
+    if command -v dnf &> /dev/null; then
+        sudo dnf install -y unzip;
+    else
+        sudo apt update && sudo apt install -y unzip;
+    fi
+fi;
+if [ ! -x "$FNM_DIR/fnm" ]; then
+    curl -fsSL https://github.com/Schniz/fnm/releases/latest/download/fnm-linux.zip -o /tmp/fnm.zip &&
+    unzip -o /tmp/fnm.zip -d "$FNM_DIR";
+fi;
+export PATH="$FNM_DIR:$PATH";
+eval "$("$FNM_DIR/fnm" env --shell bash)";
+"$FNM_DIR/fnm" install --lts;
+VER=$("$FNM_DIR/fnm" list | grep -o "v[0-9]*\.[0-9]*\.[0-9]*" | tail -n1);
+"$FNM_DIR/fnm" alias default "$VER";
+eval "$("$FNM_DIR/fnm" use "$VER" --shell bash)";
+node -v && npm -v && echo "Node.js and npm installed successfully"`;
+                output = await execWsl(command);
+                break;
+
+            case 'configure-npm':
+                // Configure npm global directory
+                command = `set -e;
+HOME_DIR="$(getent passwd $(whoami) | cut -d: -f6)";
+FNM_DIR="$HOME_DIR/.local/share/fnm";
+export PATH="$FNM_DIR:$PATH";
+eval "$("$FNM_DIR/fnm" env --shell bash)";
+mkdir -p "$HOME_DIR/.npm-global";
+npm config set prefix "$HOME_DIR/.npm-global";
+if ! grep -q "fnm env" "$HOME_DIR/.bashrc"; then
+    echo 'export PATH="$HOME/.local/share/fnm:$PATH"' >> "$HOME_DIR/.bashrc";
+    echo 'eval "$(fnm env --shell bash)"' >> "$HOME_DIR/.bashrc";
+fi;
+if ! grep -q "npm-global/bin" "$HOME_DIR/.bashrc"; then
+    echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME_DIR/.bashrc";
+fi;
+echo "npm prefix: $(npm config get prefix)" && echo "npm configured successfully"`;
+                output = await execWsl(command);
+                break;
+
+            case 'verify':
+                // Verify all tools
+                command = `set -e;
+HOME_DIR="$(getent passwd $(whoami) | cut -d: -f6)";
+FNM_DIR="$HOME_DIR/.local/share/fnm";
+export PATH="$FNM_DIR:$HOME_DIR/.npm-global/bin:$PATH";
+eval "$("$FNM_DIR/fnm" env --shell bash)";
+echo "Sudo: $(sudo --version | head -n1)";
+echo "cURL: $(curl --version | head -n1)";
+echo "Node.js: $(node -v)";
+echo "npm: $(npm -v)";
+echo "All tools verified successfully!"`;
+                output = await execWsl(command);
+                break;
+
+            default:
+                return res.status(400).json({ error: 'Unknown step ID' });
+        }
+
+        res.json({
+            success: true,
+            output: output.trim()
+        });
+    } catch (err) {
+        console.error(`Setup step ${stepId} failed:`, err);
+        res.json({
+            success: false,
+            error: err.message || err.toString(),
+            output: err.stdout || ''
+        });
+    }
+});
 
 // Socket.io for Streaming
 io.on('connection', (socket) => {
