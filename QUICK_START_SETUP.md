@@ -10,7 +10,7 @@ The setup page is now a **completely standalone application** that:
 
 ## How to Run
 
-### Step 1: Start Better CLI
+### Step 1: Start Better WSL
 
 ```bash
 cd e:\better-cli
@@ -82,11 +82,11 @@ Each step shows:
 │  ✓ Sudo         ✓ npm                      │
 │  ✓ cURL         ✓ PATH configured          │
 │                                             │
-│              [START USING BETTER CLI]       │
+│              [START USING Better WSL]       │
 └─────────────────────────────────────────────┘
 ```
 
-Click **"START USING BETTER CLI"** to begin!
+Click **"START USING Better WSL"** to begin!
 
 ## What If WSL Is Not Installed?
 
@@ -119,7 +119,7 @@ You can also run setup manually anytime:
 
 ```mermaid
 graph TD
-    A[Start Better CLI] --> B[Backend Checks System]
+    A[Start Better WSL] --> B[Backend Checks System]
     B --> C{WSL or Tools Missing?}
     C -->|Yes| D[Show Setup Wizard]
     C -->|No| E[Show Welcome Screen]
@@ -167,7 +167,7 @@ graph TD
 1. Open PowerShell as Administrator
 2. Run: `wsl --install`
 3. Restart computer
-4. Run Better CLI setup again
+4. Run Better WSL setup again
 
 ### Setup Fails at Later Steps
 

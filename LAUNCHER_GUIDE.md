@@ -2,7 +2,7 @@
 
 ## 🎯 Quick Start Options
 
-You now have **3 different ways** to launch Better CLI with one click!
+You now have **3 different ways** to launch Better WSL with one click!
 
 ---
 
@@ -89,7 +89,7 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 6. Browse to a nice icon (optional)
 7. Click **OK**
 
-Now you can **double-click the desktop icon** to start Better CLI! 🎉
+Now you can **double-click the desktop icon** to start Better WSL! 🎉
 
 ### For Batch File:
 
@@ -170,7 +170,7 @@ taskkill /F /IM node.exe >nul 2>&1
 1. Press `Win + R`
 2. Type `shell:startup` and press Enter
 3. Create a shortcut to `start-silent.vbs` in this folder
-4. Better CLI will start automatically when Windows starts!
+4. Better WSL will start automatically when Windows starts!
 
 ### Option 2: Task Scheduler
 1. Open Task Scheduler
@@ -195,12 +195,12 @@ For the **best experience**:
 
 ## 🆘 Quick Help
 
-### Starting Better CLI
+### Starting Better WSL
 ```
 Double-click: start-silent.vbs
 ```
 
-### Stopping Better CLI
+### Stopping Better WSL
 ```
 Double-click: stop.bat
 ```
@@ -240,7 +240,7 @@ Just **double-click** any launcher file and you're ready to go!
    ↓
 5. Open Browser → http://localhost:5173
    ↓
-6. Better CLI Ready! 🎉
+6. Better WSL Ready! 🎉
 ```
 
 ---

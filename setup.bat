@@ -1,6 +1,6 @@
 @echo off
 echo ========================================
-echo  Better CLI - Standalone Setup
+echo  Better WSL - Standalone Setup
 echo ========================================
 echo.
 echo Starting setup wizard...

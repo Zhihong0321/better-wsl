@@ -122,7 +122,7 @@ No overlap, no conflicts, completely separate!
 ### Use `start.bat` when:
 - ✓ Setup is complete
 - ✓ Everything is already installed
-- ✓ You want to use Better CLI
+- ✓ You want to use Better WSL
 
 ## Troubleshooting
 

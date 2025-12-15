@@ -2,7 +2,7 @@
 
 ## 🎯 Overview
 
-The Better CLI now has built-in network monitoring to track latency and performance when using AI coding tools. This helps you:
+The Better WSL now has built-in network monitoring to track latency and performance when using AI coding tools. This helps you:
 - **Detect which AI APIs** your tools are connecting to
 - **Measure latency** (ping times) to those endpoints
 - **Track packet loss** and connection stability
@@ -59,7 +59,7 @@ Get real-time network information and latency metrics for a specific session.
 
 ### Method 1: Using the Test Script
 
-1. **Start your Better CLI** and create a session
+1. **Start your Better WSL** and create a session
 2. **Run an AI coding tool** in that session (e.g., `codex`, `aider`)
 3. **Run the test script:**
    ```bash

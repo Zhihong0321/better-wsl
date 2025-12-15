@@ -1,7 +1,7 @@
 @echo off
 echo.
 echo =====================================
-echo   Better CLI - Stopping...
+echo   Better WSL - Stopping...
 echo =====================================
 echo.
 
@@ -11,7 +11,7 @@ taskkill /F /IM node.exe >nul 2>&1
 if %errorlevel% == 0 (
     echo.
     echo =====================================
-    echo   Better CLI has been stopped!
+    echo   Better WSL has been stopped!
     echo =====================================
 ) else (
     echo.

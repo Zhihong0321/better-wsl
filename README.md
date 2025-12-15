@@ -1,6 +1,6 @@
-# Better CLI 🚀
+# Better WSL 🚀
 
-> **A powerful, modern terminal wrapper for Windows Subsystem for Linux (WSL)**  
+> **For Windows users: A far better WSL to run AI Coding CLI tools natively**  
 > Built for AI-powered coding workflows with intelligent multi-session management, smart paste handling, and advanced customization.
 
 [![Windows 11](https://img.shields.io/badge/Windows-11-blue?logo=windows)](https://www.microsoft.com/windows)
@@ -10,9 +10,9 @@
 
 ---
 
-## 🎯 Why Better CLI?
+## 🎯 Why Better WSL?
 
-Modern AI coding tools like **Aider**, **Cursor**, **Claude**, and **GitHub Copilot** require seamless terminal interaction. Better CLI eliminates friction by providing:
+Modern AI coding tools like **Aider**, **Cursor**, **Claude**, and **GitHub Copilot** require seamless terminal interaction. Better WSL eliminates friction by providing:
 
 ✨ **Smart clipboard handling** - Paste images directly as base64  
 ⚡ **Configurable shortcuts** - Remap keys to match your workflow  
@@ -207,7 +207,7 @@ Perfect for developers using:
 - [Claude CLI](https://claude.ai/) - Anthropic's command-line assistant
 - [GitHub Copilot CLI](https://github.com/features/copilot) - Natural language commands
 
-**Why Better CLI?**
+**Why Better WSL?**
 - ✅ Paste images directly as base64 (for Claude, Gemini, GPT-4V)
 - ✅ `Shift+Enter` for multi-line prompts (no accidental sends)
 - ✅ Multi-session = work on multiple projects with different AI contexts
@@ -303,7 +303,7 @@ Keyboard shortcuts are **CLI-dependent**. Most AI CLIs use `Alt+Enter` by defaul
    - `Shift+Enter` (user preference)
    - `Ctrl+Enter` (alternative)
 
-Better CLI **translates** your chosen key to `Alt+Enter` internally.
+Better WSL **translates** your chosen key to `Alt+Enter` internally.
 </details>
 
 <details>
@@ -311,7 +311,7 @@ Better CLI **translates** your chosen key to `Alt+Enter` internally.
 
 **Symptoms:** Paste doesn't show preview dialog
 
-**Cause:** You're pasting directly in terminal. Better CLI intercepts paste for safety.
+**Cause:** You're pasting directly in terminal. Better WSL intercepts paste for safety.
 
 **Solution:**
 1. Use the **Clipboard Manager** (📋 tab)

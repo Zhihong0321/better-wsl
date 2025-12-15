@@ -1,9 +1,9 @@
-# Better CLI - PowerShell Launcher
+# Better WSL - PowerShell Launcher
 # Run this with: powershell -ExecutionPolicy Bypass -File start.ps1
 
 Write-Host ""
 Write-Host "=====================================" -ForegroundColor Cyan
-Write-Host "  Better CLI - Starting..." -ForegroundColor Cyan
+Write-Host "  Better WSL - Starting..." -ForegroundColor Cyan
 Write-Host "=====================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -60,7 +60,7 @@ Start-Process "http://localhost:5173"
 
 Write-Host ""
 Write-Host "=====================================" -ForegroundColor Green
-Write-Host "  Better CLI is now running!" -ForegroundColor Green
+Write-Host "  Better WSL is now running!" -ForegroundColor Green
 Write-Host "=====================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "  Frontend: http://localhost:5173" -ForegroundColor White

@@ -1,5 +1,5 @@
-' Better CLI - Silent Launcher
-' Double-click this file to start Better CLI silently
+' Better WSL - Silent Launcher
+' Double-click this file to start Better WSL silently
 
 Set WshShell = CreateObject("WScript.Shell")
 Set objFSO = CreateObject("Scripting.FileSystemObject")
@@ -23,8 +23,8 @@ frontendRunning = IsPortInUse("5173")
 
 If backendRunning And frontendRunning Then
     ' Both already running - just open browser
-    statusMsg = "Better CLI is already running!" & vbCrLf & vbCrLf & "Opening browser..."
-    MsgBox statusMsg, vbInformation, "Better CLI"
+    statusMsg = "Better WSL is already running!" & vbCrLf & vbCrLf & "Opening browser..."
+    MsgBox statusMsg, vbInformation, "Better WSL"
     WshShell.Run "http://localhost:5173", 1, False
     WScript.Quit
 End If
@@ -35,9 +35,9 @@ If backendRunning Then
 ElseIf frontendRunning Then
     statusMsg = "Frontend already running. Starting backend..."
 Else
-    statusMsg = "Starting Better CLI..." & vbCrLf & vbCrLf & "Please wait 5 seconds..."
+    statusMsg = "Starting Better WSL..." & vbCrLf & vbCrLf & "Please wait 5 seconds..."
 End If
-MsgBox statusMsg, vbInformation, "Better CLI"
+MsgBox statusMsg, vbInformation, "Better WSL"
 
 ' Start backend server if not running (hidden)
 If Not backendRunning Then
@@ -55,11 +55,11 @@ End If
 WshShell.Run "http://localhost:5173", 1, False
 
 ' Show success message
-MsgBox "Better CLI is now running!" & vbCrLf & vbCrLf & _
+MsgBox "Better WSL is now running!" & vbCrLf & vbCrLf & _
        "Frontend: http://localhost:5173" & vbCrLf & _
        "Backend:  http://localhost:3000" & vbCrLf & vbCrLf & _
        "To stop: Run stop.bat", _
-       vbInformation, "Better CLI Started"
+       vbInformation, "Better WSL Started"
 
 ' Cleanup
 Set WshShell = Nothing

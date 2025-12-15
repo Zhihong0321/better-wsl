@@ -49,7 +49,7 @@ curl http://localhost:3000/api/sessions/{SESSION_ID}/network-info
 
 ### 1️⃣ Baseline Test (No VPN)
 ```bash
-# Start AI tool in Better CLI
+# Start AI tool in Better WSL
 aider
 
 # In another terminal
@@ -148,7 +148,7 @@ You might see connections to:
 - ✅ Check firewall settings
 
 ### Session not found
-- ✅ Create a session in Better CLI UI
+- ✅ Create a session in Better WSL UI
 - ✅ Run: `curl http://localhost:3000/api/sessions`
 - ✅ Use correct session ID
 
