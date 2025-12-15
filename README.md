@@ -10,6 +10,26 @@
 
 ---
 
+## 🚀 **Quick Start - Get Your Windows 11 Ready**
+
+### **Run `SETUP.bat` to set up Better WSL on your Windows 11**
+
+```bash
+# Simply double-click setup.bat or run in PowerShell:
+.\setup.bat
+```
+
+**What happens:**
+1. ✅ Launches standalone setup wizard on port 5174
+2. ✅ Detects/installs WSL distros (Fedora, Ubuntu, Debian)
+3. ✅ Configures development environment automatically
+4. ✅ Installs Node.js, npm, and essential tools
+5. ✅ Ready to use in minutes!
+
+> **💡 First time on Windows 11?** `setup.bat` handles everything - no prerequisites needed!
+
+---
+
 ## 🎯 Why Better WSL?
 
 Modern AI coding tools like **Aider**, **Cursor**, **Claude**, and **GitHub Copilot** require seamless terminal interaction. Better WSL eliminates friction by providing:
