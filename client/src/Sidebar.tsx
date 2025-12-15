@@ -524,6 +524,24 @@ const Sidebar: Component<SidebarProps> = (props) => {
                     NEW SESSION
                 </button>
             </div>
+
+            {/* Attribution */}
+            <div style={{ 
+                padding: '12px 16px', 
+                "border-top": '1px solid var(--border-subtle)',
+                "background": 'rgba(0, 0, 0, 0.2)',
+                "text-align": 'center',
+                "font-size": '10px',
+                color: 'var(--text-muted)'
+            }}>
+                <div style={{ "margin-bottom": '4px', display: 'flex', "align-items": 'center', "justify-content": 'center', gap: '6px' }}>
+                    <span style={{ "font-size": '14px' }}>🇲🇾</span>
+                    <span style={{ "text-transform": 'uppercase', "letter-spacing": '1px', "font-weight": 600 }}>FROM MALAYSIA WITH LOVE</span>
+                </div>
+                <div style={{ color: 'var(--accent-primary)', "font-weight": 700, "letter-spacing": '0.5px' }}>
+                    AUTHOR - ZHIHONG
+                </div>
+            </div>
         </div>
     );
 };
