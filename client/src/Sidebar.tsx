@@ -535,7 +535,11 @@ const Sidebar: Component<SidebarProps> = (props) => {
                 color: 'var(--text-muted)'
             }}>
                 <div style={{ "margin-bottom": '4px', display: 'flex', "align-items": 'center', "justify-content": 'center', gap: '6px' }}>
-                    <span style={{ "font-size": '14px' }}>🇲🇾</span>
+                    <img 
+                        src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 14'%3E%3Cpath fill='%23CC0001' d='M0 0h28v1H0zm0 2h28v1H0zm0 2h28v1H0zm0 2h28v1H0zm0 2h28v1H0zm0 2h28v1H0zm0 2h28v1H0z'/%3E%3Cpath fill='%23FFF' d='M0 1h28v1H0zm0 2h28v1H0zm0 2h28v1H0zm0 2h28v1H0zm0 2h28v1H0zm0 2h28v1H0z'/%3E%3Cpath fill='%2310107B' d='M0 0h14v8H0z'/%3E%3Cpath fill='%23FFCC00' d='M9 1.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zm.5 2.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z'/%3E%3Cpath fill='%23FFCC00' d='M11.5 3.5l-.5.4.2-.6-.5-.4h.6l.2-.6.2.6h.6l-.5.4.2.6z'/%3E%3C/svg%3E" 
+                        alt="🇲🇾"
+                        style={{ width: '24px', height: '14px' }}
+                    />
                     <span style={{ "text-transform": 'uppercase', "letter-spacing": '1px', "font-weight": 600 }}>FROM MALAYSIA WITH LOVE</span>
                 </div>
                 <div style={{ color: 'var(--accent-primary)', "font-weight": 700, "letter-spacing": '0.5px' }}>
