@@ -30,6 +30,14 @@
 
 ---
 
+## 📸 **Screenshots**
+
+### Multi-Session Terminal in Action
+![Better WSL Interface](screenshots/better-wsl.png)
+*Multi-session terminals with AI coding workflow, sidebar navigation, and real-time Git integration*
+
+---
+
 ## 🎯 Why Better WSL?
 
 Modern AI coding tools like **Aider**, **Cursor**, **Claude**, and **GitHub Copilot** require seamless terminal interaction. Better WSL eliminates friction by providing:
