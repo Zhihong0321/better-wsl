@@ -270,11 +270,20 @@ app.get('/api/system/status', async (req, res) => {
         }
 
         try {
-            const wslviewCheck = await execWsl('which wslview 2>/dev/null || echo "NOT_FOUND"');
-            const xdgOpenCheck = await execWsl('which xdg-open 2>/dev/null || echo "NOT_FOUND"');
+            // OPTIMIZED: Check both wslview and xdg-open in one WSL call
+            const bridgeScript = `
+                (which wslview 2>/dev/null && echo "WSLVIEW=found" || echo "WSLVIEW=not_found") &
+                (which xdg-open 2>/dev/null && echo "XDGOPEN=found" || echo "XDGOPEN=not_found") &
+                wait
+            `;
+            const bridgeOutput = await execWsl(bridgeScript);
+            const lines = bridgeOutput.split('\n');
+            const hasWslview = lines.some(l => l.includes('WSLVIEW=found'));
+            const hasXdgOpen = lines.some(l => l.includes('XDGOPEN=found'));
+            
             browserBridge = {
-                wslviewInstalled: wslviewCheck && !wslviewCheck.includes('NOT_FOUND'),
-                xdgOpenInstalled: xdgOpenCheck && !xdgOpenCheck.includes('NOT_FOUND')
+                wslviewInstalled: hasWslview,
+                xdgOpenInstalled: hasXdgOpen
             };
         } catch { }
     }
@@ -737,6 +746,7 @@ app.post('/api/tools/detect-broad', async (req, res) => {
 // API: Get system information (distro, package manager, etc)
 app.post('/api/tools/system-info', async (req, res) => {
     try {
+        // OPTIMIZED: Run all checks in parallel in a single WSL call
         const script = `
             # Detect distribution
             if [ -f /etc/os-release ]; then
@@ -755,10 +765,11 @@ app.post('/api/tools/system-info', async (req, res) => {
                 echo "PKG_MGR=unknown"
             fi
             
-            # Check common tools
-            command -v sudo &> /dev/null && echo "HAS_SUDO=true" || echo "HAS_SUDO=false"
-            command -v curl &> /dev/null && echo "HAS_CURL=true" || echo "HAS_CURL=false"
-            command -v node &> /dev/null && echo "HAS_NODE=true" || echo "HAS_NODE=false"
+            # Check all tools in parallel using background jobs
+            (command -v sudo &> /dev/null && echo "HAS_SUDO=true" || echo "HAS_SUDO=false") &
+            (command -v curl &> /dev/null && echo "HAS_CURL=true" || echo "HAS_CURL=false") &
+            (command -v node &> /dev/null && echo "HAS_NODE=true" || echo "HAS_NODE=false") &
+            wait
         `;
         
         const output = await execWsl(script);

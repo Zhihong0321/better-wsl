@@ -8,6 +8,85 @@
   </head>
   <body>
     <div id="root"></div>
+    
+    <!-- Pure HTML Loading Screen - Shows while Vite initializes -->
+    <div id="vite-loader" style="
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #0a0a0a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      font-family: 'Courier New', monospace;
+      color: #00ff00;
+    ">
+      <div style="text-align: center;">
+        <div style="font-size: 48px; font-weight: bold; margin-bottom: 20px; letter-spacing: 4px;">
+          BETTER WSL
+        </div>
+        <div style="font-size: 14px; color: #00aa00; margin-bottom: 40px;">
+          Initializing Terminal Environment...
+        </div>
+        
+        <!-- ASCII Loading Animation -->
+        <div id="loader-text" style="font-size: 16px; letter-spacing: 2px;">
+          [████████████████████] 100%
+        </div>
+        
+        <div style="margin-top: 30px; font-size: 12px; color: #006600;">
+          <div id="loader-status">Loading modules...</div>
+        </div>
+      </div>
+    </div>
+    
+    <script>
+      // Animate loading bar
+      const loaderText = document.getElementById('loader-text');
+      const loaderStatus = document.getElementById('loader-status');
+      let progress = 0;
+      const statuses = [
+        'Loading modules...',
+        'Compiling TypeScript...',
+        'Building dependencies...',
+        'Starting WSL bridge...',
+        'Almost ready...'
+      ];
+      
+      const interval = setInterval(() => {
+        progress += 5;
+        if (progress > 100) progress = 100;
+        
+        const filled = Math.floor(progress / 5);
+        const empty = 20 - filled;
+        const bar = '[' + '█'.repeat(filled) + '░'.repeat(empty) + '] ' + progress + '%';
+        loaderText.textContent = bar;
+        
+        const statusIndex = Math.floor((progress / 100) * (statuses.length - 1));
+        loaderStatus.textContent = statuses[statusIndex];
+        
+        if (progress >= 100) {
+          clearInterval(interval);
+        }
+      }, 100);
+      
+      // Remove loader when Vite loads
+      window.addEventListener('load', () => {
+        setTimeout(() => {
+          const loader = document.getElementById('vite-loader');
+          if (loader) {
+            loader.style.opacity = '0';
+            loader.style.transition = 'opacity 0.5s';
+            setTimeout(() => loader.remove(), 500);
+          }
+        }, 500);
+      });
+    </script>
+    
     <script type="module" src="/src/index.tsx"></script>
   </body>
 </html>

@@ -83,6 +83,28 @@ function App() {
   };
 
   const checkSystem = async () => {
+    // Check cache first (30 min TTL)
+    const CACHE_KEY = 'system_health_cache';
+    const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+    
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      try {
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < CACHE_TTL) {
+          console.log('[Cache] Using cached health check');
+          setBackendAlive(true);
+          setSystemReady(data.wslInstalled);
+          setBridgeReady(data.bridgeReady);
+          setNeedsSetup(data.needsSetup);
+          setCheckingStatus(false);
+          return;
+        }
+      } catch (e) {
+        console.warn('[Cache] Invalid cache, will refresh');
+      }
+    }
+    
     try {
       const res = await fetch('http://localhost:3000/api/system/status');
       const data = await res.json();
@@ -100,6 +122,16 @@ function App() {
         // Show setup if WSL not installed OR essential tools missing
         const setupNeeded = !data.wslInstalled || !sysInfo.hasSudo || !sysInfo.hasCurl || !sysInfo.hasNode;
         setNeedsSetup(setupNeeded);
+        
+        // Cache the results
+        localStorage.setItem(CACHE_KEY, JSON.stringify({
+          data: {
+            wslInstalled: data.wslInstalled,
+            bridgeReady: !!ok,
+            needsSetup: setupNeeded
+          },
+          timestamp: Date.now()
+        }));
       } catch (err) {
         // If can't check system info, assume setup is needed
         console.warn('Could not check system info, showing setup:', err);

@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "dev:fast": "vite --force"
   },
   "dependencies": {
     "lucide-solid": "^0.556.0",
