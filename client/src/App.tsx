@@ -150,12 +150,13 @@ function App() {
     try {
       const res = await fetch('http://localhost:3000/api/sessions');
       const data = await res.json();
-      // Filter sessions for current project
-      const projectSessions = data.filter((s: Session) => s.project === currentProject());
-      setSessions(projectSessions);
+      
+      // DON'T filter - show ALL sessions across all projects
+      setSessions(data);
 
-      if (projectSessions.length > 0 && !activeSessionId()) {
-        setActiveSessionId(projectSessions[0].id);
+      // If no active session, select the first one
+      if (data.length > 0 && !activeSessionId()) {
+        setActiveSessionId(data[0].id);
       }
     } catch (err) {
       console.error("Failed to fetch sessions", err);
@@ -168,13 +169,15 @@ function App() {
       const data = await res.json();
       
       if (data.length > 0) {
-        // Found existing sessions, use the first one's project
-        const firstSession = data[0];
-        setCurrentProject(firstSession.project);
-        setSessions(data.filter((s: Session) => s.project === firstSession.project));
-        setActiveSessionId(firstSession.id);
+        // Show ALL sessions, not just from one project
+        setSessions(data);
         
-        // Fetch git info for the project
+        // Set active session to first one
+        const firstSession = data[0];
+        setActiveSessionId(firstSession.id);
+        setCurrentProject(firstSession.project);
+        
+        // Fetch git info for the first project
         if (firstSession.project) {
           await fetchGitInfo(firstSession.project);
         }
