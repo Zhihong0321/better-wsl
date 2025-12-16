@@ -191,16 +191,19 @@ function App() {
     setShowNewSessionBrowser(false);
     if (!path) return;
 
-    setCurrentProject(path);
+    // Extract folder name from path (handles both Windows and WSL paths)
+    const folderName = path.split(/[\\\/]/).filter(Boolean).pop() || path;
+    
+    setCurrentProject(folderName);
     try {
       const res = await fetch('http://localhost:3000/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project: path })
+        body: JSON.stringify({ project: folderName })
       });
       const data = await res.json();
       await fetchSessions();
-      await fetchGitInfo(path);
+      await fetchGitInfo(folderName);
       setActiveSessionId(data.id);
       setCurrentView('sessions');
     } catch (err) {
